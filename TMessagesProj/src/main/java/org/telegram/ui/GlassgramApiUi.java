@@ -1476,6 +1476,8 @@ public final class GlassgramApiUi {
             final JSONArray owners = response.json.optJSONArray("owners");
             final JSONArray admins = response.json.optJSONArray("admins");
             final JSONArray levels = response.json.optJSONArray("levels");
+            // the rights this admin may give and take: their own
+            final JSONArray rights = response.json.optJSONArray("rights");
             final ArrayList<CharSequence> items = new ArrayList<>();
             final ArrayList<JSONObject> rows = new ArrayList<>();
             for (int i = 0; owners != null && i < owners.length(); i++) {
@@ -1485,7 +1487,11 @@ public final class GlassgramApiUi {
             for (int i = 0; admins != null && i < admins.length(); i++) {
                 final JSONObject admin = admins.optJSONObject(i);
                 final String adminName = admin.optString("name");
-                items.add(admin.optLong("id") + (TextUtils.isEmpty(adminName) ? "" : " " + adminName) + " — " + admin.optString("level_name"));
+                String item = admin.optLong("id") + (TextUtils.isEmpty(adminName) ? "" : " " + adminName) + " — " + admin.optString("level_name");
+                if (admin.optBoolean("custom_rights")) {
+                    item += "\n🔐 " + rightsText(admin.optJSONArray("rights"));
+                }
+                items.add(item);
                 rows.add(admin);
             }
             items.add(getString(R.string.GlassgramApiAppoint));
@@ -1498,9 +1504,9 @@ public final class GlassgramApiUi {
                             return;
                         }
                         if (row.length() == 0) {
-                            askAdminId(fragment, levels);
+                            askAdminId(fragment, levels, rights);
                         } else if (row.optBoolean("can_change")) {
-                            showAdmin(fragment, row.optLong("id"), levels, true);
+                            showAdmin(fragment, row.optLong("id"), levels, rights, row);
                         }
                     })
                     .setNegativeButton(getString(R.string.Close), null)
@@ -1508,7 +1514,7 @@ public final class GlassgramApiUi {
         });
     }
 
-    private static void askAdminId(BaseFragment fragment, JSONArray levels) {
+    private static void askAdminId(BaseFragment fragment, JSONArray levels, JSONArray rights) {
         final Activity context = fragment.getParentActivity();
         if (context == null) {
             return;
@@ -1520,46 +1526,163 @@ public final class GlassgramApiUi {
                 .setPositiveButton(getString(R.string.OK), (d, w) -> {
                     final long id = Utilities.parseLong(field.getText().toString());
                     if (id > 0) {
-                        showAdmin(fragment, id, levels, false);
+                        showAdmin(fragment, id, levels, rights, null);
                     }
                 })
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .show();
     }
 
-    private static void showAdmin(BaseFragment fragment, long userId, JSONArray levels, boolean existing) {
+    /** An admin's level, rights and removal; a new one (admin null) is appointed with a level, or as a moderator with chosen rights. */
+    private static void showAdmin(BaseFragment fragment, long userId, JSONArray levels, JSONArray rights, JSONObject admin) {
         final Activity context = fragment.getParentActivity();
         if (context == null || levels == null) {
             return;
         }
+        final boolean existing = admin != null;
+        final int currentLevel = existing ? admin.optInt("level") : 0;
         final ArrayList<CharSequence> items = new ArrayList<>();
         for (int i = 0; i < levels.length(); i++) {
-            items.add(levels.optJSONObject(i).optString("name"));
+            final JSONObject level = levels.optJSONObject(i);
+            items.add((level.optInt("level") == currentLevel ? "✓ " : "") + level.optString("name"));
         }
+        final int rightsItem = rights != null && rights.length() > 0 && (existing || levels.length() > 0) ? items.size() : -1;
+        if (rightsItem >= 0) {
+            items.add("🔐 " + getString(existing ? R.string.GlassgramApiRights : R.string.GlassgramApiModeratorWithRights));
+        }
+        final int removeItem = existing ? items.size() : -1;
         if (existing) {
             items.add(getString(R.string.GlassgramApiRemoveAdmin));
         }
         final int account = fragment.getCurrentAccount();
         new AlertDialog.Builder(context)
-                .setTitle(String.valueOf(userId))
+                .setTitle(adminTitle(userId, admin))
                 .setItems(items.toArray(new CharSequence[0]), (d, which) -> {
-                    final AlertDialog progress = progress(fragment);
-                    final GlassgramApi.Callback done = response -> {
-                        progress.dismiss();
-                        if (response.ok()) {
-                            showDone(fragment, getString(R.string.GlassgramApiSaved));
-                        } else {
-                            showError(fragment, response);
-                        }
-                    };
+                    if (which == rightsItem) {
+                        showRights(fragment, userId, levels, rights, admin);
+                        return;
+                    }
+                    final GlassgramApi.Callback done = adminSaved(fragment, progress(fragment));
                     if (which < levels.length()) {
                         GlassgramApi.call(account, "PUT", "/admins/" + userId,
                                 GlassgramApi.json("level", levels.optJSONObject(which).optInt("level")), done);
-                    } else {
+                    } else if (which == removeItem) {
                         GlassgramApi.call(account, "DELETE", "/admins/" + userId, null, done);
                     }
                 })
                 .setNegativeButton(getString(R.string.Cancel), null)
                 .show();
+    }
+
+    /** Ticks for the rights this admin may give: their own. An admin not set one by one follows their level. */
+    private static void showRights(BaseFragment fragment, long userId, JSONArray levels, JSONArray rights, JSONObject admin) {
+        final Activity context = fragment.getParentActivity();
+        if (context == null || rights == null) {
+            return;
+        }
+        final boolean existing = admin != null;
+        final JSONArray current = existing ? admin.optJSONArray("rights") : null;
+        final java.util.HashSet<String> theirs = new java.util.HashSet<>();
+        for (int i = 0; current != null && i < current.length(); i++) {
+            theirs.add(current.optString(i));
+        }
+        final android.widget.LinearLayout layout = new android.widget.LinearLayout(context);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        final TextView info = new TextView(context);
+        String infoText = getString(R.string.GlassgramApiRightsInfo);
+        if (existing) {
+            infoText = getString(admin.optBoolean("custom_rights") ? R.string.GlassgramApiRightsOwn : R.string.GlassgramApiRightsByLevel) + "\n\n" + infoText;
+        }
+        info.setText(infoText);
+        info.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+        info.setTextColor(Theme.getColor(Theme.key_dialogTextGray3));
+        layout.addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 24, 4, 24, 8));
+        final String[] ids = new String[rights.length()];
+        final org.telegram.ui.Cells.CheckBoxCell[] checks = new org.telegram.ui.Cells.CheckBoxCell[rights.length()];
+        for (int i = 0; i < rights.length(); i++) {
+            final JSONObject right = rights.optJSONObject(i);
+            ids[i] = right.optString("id");
+            final org.telegram.ui.Cells.CheckBoxCell check = new org.telegram.ui.Cells.CheckBoxCell(context, 1);
+            check.setBackground(Theme.getSelectorDrawable(false));
+            check.setText(rightLabel(ids[i], right.optString("name")), "", theirs.contains(ids[i]), false);
+            check.setOnClickListener(v -> check.setChecked(!check.isChecked(), true));
+            checks[i] = check;
+            layout.addView(check, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
+        }
+        final ScrollView scroll = new ScrollView(context);
+        scroll.addView(layout);
+        final int account = fragment.getCurrentAccount();
+        final AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                .setTitle(existing ? formatString(R.string.GlassgramApiRightsTitle, adminTitle(userId, admin)) : getString(R.string.GlassgramApiModeratorWithRights))
+                .setView(scroll)
+                .setPositiveButton(getString(R.string.Save), (d, w) -> {
+                    final JSONArray chosen = new JSONArray();
+                    for (int i = 0; i < checks.length; i++) {
+                        if (checks[i].isChecked()) {
+                            chosen.put(ids[i]);
+                        }
+                    }
+                    // a new one is appointed at the lowest level, with just these rights
+                    final JSONObject body = existing ? GlassgramApi.json("rights", chosen)
+                            : GlassgramApi.json("level", levels.optJSONObject(0).optInt("level"), "rights", chosen);
+                    GlassgramApi.call(account, "PUT", "/admins/" + userId, body, adminSaved(fragment, progress(fragment)));
+                })
+                .setNegativeButton(getString(R.string.Cancel), null);
+        if (existing && admin.optBoolean("custom_rights")) {
+            builder.setNeutralButton(getString(R.string.GlassgramApiRightsLevel), (d, w) ->
+                    GlassgramApi.call(account, "PUT", "/admins/" + userId, GlassgramApi.json("rights", JSONObject.NULL),
+                            adminSaved(fragment, progress(fragment))));
+        }
+        builder.show();
+    }
+
+    private static String adminTitle(long userId, JSONObject admin) {
+        final String name = admin != null ? admin.optString("name") : "";
+        return TextUtils.isEmpty(name) ? String.valueOf(userId) : name + " (" + userId + ")";
+    }
+
+    /** After a change of an admin: done, or why not; rights one lacks are named. */
+    private static GlassgramApi.Callback adminSaved(BaseFragment fragment, AlertDialog progress) {
+        return response -> {
+            progress.dismiss();
+            if (response.ok()) {
+                showDone(fragment, getString(R.string.GlassgramApiSaved));
+                return;
+            }
+            final JSONArray lacking = response.json.optJSONArray("rights");
+            if (response.status == 403 && lacking != null && lacking.length() > 0 && fragment.getParentActivity() != null) {
+                BulletinFactory.of(fragment).createErrorBulletin(formatString(R.string.GlassgramApiRightsLacking, rightsText(lacking))).show();
+            } else {
+                showError(fragment, response);
+            }
+        };
+    }
+
+    private static String rightsText(JSONArray rights) {
+        final StringBuilder text = new StringBuilder();
+        for (int i = 0; rights != null && i < rights.length(); i++) {
+            if (text.length() > 0) {
+                text.append(", ");
+            }
+            text.append(rightLabel(rights.optString(i), rights.optString(i)));
+        }
+        return text.length() > 0 ? text.toString() : getString(R.string.GlassgramApiRightsNone);
+    }
+
+    /** A right's name in the app's language; the server's name for one this version doesn't know. */
+    private static String rightLabel(String right, String fallback) {
+        switch (right) {
+            case GlassgramApi.RIGHT_BADGES: return getString(R.string.GlassgramApiRightBadges);
+            case GlassgramApi.RIGHT_BANS: return getString(R.string.GlassgramApiRightBans);
+            case GlassgramApi.RIGHT_SUPPORT: return getString(R.string.GlassgramApiRightSupport);
+            case GlassgramApi.RIGHT_STATS: return getString(R.string.GlassgramApiRightStats);
+            case GlassgramApi.RIGHT_USERS: return getString(R.string.GlassgramApiRightUsers);
+            case GlassgramApi.RIGHT_CONFIG: return getString(R.string.GlassgramApiRightConfig);
+            case GlassgramApi.RIGHT_PLUGINS: return getString(R.string.GlassgramApiRightPlugins);
+            case GlassgramApi.RIGHT_PROXIES: return getString(R.string.GlassgramApiRightProxies);
+            case GlassgramApi.RIGHT_TUNNEL: return getString(R.string.GlassgramApiRightTunnel);
+            case GlassgramApi.RIGHT_ADMINS: return getString(R.string.GlassgramApiRightAdmins);
+            default: return fallback;
+        }
     }
 }

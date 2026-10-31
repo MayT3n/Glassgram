@@ -36,7 +36,7 @@ public final class GlassgramApi {
     public static final String BASE_URL = "https://glassgram-api.vanguardvpn.xyz:8444/api/v1";
     public static final String BOT_USERNAME = "glassGramBot";
 
-    /** The rights the server gives by the bot's admin levels. */
+    /** The rights the server gives: by the bot's admin levels, or to an admin one by one. */
     public static final String RIGHT_BADGES = "badges";
     public static final String RIGHT_SUPPORT = "support";
     public static final String RIGHT_STATS = "stats";

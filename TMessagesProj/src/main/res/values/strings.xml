@@ -11831,6 +11831,25 @@
     <string name="GlassgramApiUserIdHint">Telegram ID</string>
     <string name="GlassgramApiRemoveAdmin">Remove from admins</string>
     <string name="GlassgramApiSaved">Saved</string>
+    <string name="GlassgramApiRights">Rights…</string>
+    <string name="GlassgramApiRightsTitle">Rights of %1$s</string>
+    <string name="GlassgramApiModeratorWithRights">Moderator with chosen rights…</string>
+    <string name="GlassgramApiRightsInfo">Tick what this admin may do. You can give and take only the rights you have yourself; the level still sets which badges they give and whom they manage.</string>
+    <string name="GlassgramApiRightsOwn">Their rights are set one by one.</string>
+    <string name="GlassgramApiRightsByLevel">Now they have the rights of their level.</string>
+    <string name="GlassgramApiRightsLevel">By level</string>
+    <string name="GlassgramApiRightsLacking">You don\'t have these rights yourself: %1$s. Set the rights one by one.</string>
+    <string name="GlassgramApiRightsNone">no rights</string>
+    <string name="GlassgramApiRightBadges">Badges and payments</string>
+    <string name="GlassgramApiRightBans">Bans</string>
+    <string name="GlassgramApiRightSupport">Support reports</string>
+    <string name="GlassgramApiRightStats">Statistics and crashes</string>
+    <string name="GlassgramApiRightUsers">Users</string>
+    <string name="GlassgramApiRightConfig">Rules for devices</string>
+    <string name="GlassgramApiRightPlugins">Plugin catalog</string>
+    <string name="GlassgramApiRightProxies">Proxies</string>
+    <string name="GlassgramApiRightTunnel">Tunnel</string>
+    <string name="GlassgramApiRightAdmins">Admins</string>
 
     <string name="AudioRecorderSettings">Voice Messages</string>
     <string name="AudioRecorderGeneral">Recorder</string>
