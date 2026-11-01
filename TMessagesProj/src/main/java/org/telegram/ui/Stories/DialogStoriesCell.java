@@ -462,6 +462,31 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
     }
 
+    // glassGram: the chats list's iOS-like header has the collapsed row (the mini avatars, the
+    // title, its status and badge) in the middle of the bar, between the Edit button and the
+    // buttons at the end, and only as near them as minLeft and endInset (from the bar's end) let it
+    private boolean centerCollapsedRow;
+    private float centerRowMinLeft, centerRowEndInset;
+    private float centerRowWidth;
+
+    public void setCenterCollapsedRow(boolean center, float minLeft, float endInset) {
+        if (centerCollapsedRow != center || centerRowMinLeft != minLeft || centerRowEndInset != endInset) {
+            centerCollapsedRow = center;
+            centerRowMinLeft = minLeft;
+            centerRowEndInset = endInset;
+            invalidate();
+        }
+    }
+
+    /** Where the collapsed row starts: at its offset, or in the middle of the bar. */
+    private float collapsedRowLeft() {
+        if (!centerCollapsedRow || centerRowWidth <= 0 || getWidth() <= 0) {
+            return menuItemsOffset;
+        }
+        final float maxLeft = getWidth() - centerRowEndInset - centerRowWidth;
+        return Math.max(centerRowMinLeft, Math.min((getWidth() - centerRowWidth) / 2f, maxLeft));
+    }
+
     public void setMenuItemsOffset(float menuItemsOffset) {
         this.menuItemsOffset = menuItemsOffset;
     }
@@ -702,7 +727,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         float bottomY = AndroidUtilities.lerp(0, maxY, collapsedProgress1);
         recyclerListView.setTranslationY(bottomY);
         listViewMini.setTranslationY(bottomY);
-        listViewMini.setTranslationX(menuItemsOffset);
+        listViewMini.setTranslationX(collapsedRowLeft());
 
         for (int i = 0; i < viewsDrawInParent.size(); i++) {
             viewsDrawInParent.get(i).drawInParent = false;
@@ -832,7 +857,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
                 } else {
                     toX = dp(COLLAPSED_DIS) + dp(COLLAPSED_DIS) * cellCollapsedProgress - AndroidUtilities.dpf2(0.5f) + AndroidUtilities.lerp(dp(COLLAPSED_DIS + COLLAPSED_DIS), 0f, collapsedProgress);
                 }
-                toX += menuItemsOffset;
+                toX += collapsedRowLeft();
                 if (!collapsed) {
                     float dstCellX = 0;
                     if (overscrollProgress > 0) {
@@ -932,7 +957,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
         float progress = Math.min(collapsedProgress, collapsedProgress2);
 
-        final float clipRightPadding = actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress - dp(6);
+        final float clipRightPadding = (centerCollapsedRow ? centerRowEndInset : actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha()) * progress - dp(6);
         final boolean needSaveLayer = progress != 0 && clipRightPadding > 0;
         if (needSaveLayer) {
             final float clipWidth = getWidth() - clipRightPadding;
@@ -954,7 +979,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
             int cellWidth = dp(72);
             lastViewRight += -cellWidth + getAvatarRight(cellWidth, collapsedProgress) + dp(12);
             titleView.setTranslationX(lastViewRight);
-            titleView.getDrawable().setRightPadding(lastViewRight - dp(12) + actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha() * progress);
+            titleView.getDrawable().setRightPadding(lastViewRight - dp(12) + (centerCollapsedRow ? centerRowEndInset : actionBar.menu.getVisibleItemsMeasuredWidthWithAlpha()) * progress);
 
             telegramLogoView.setTranslationX(titleView.getTranslationX() + dp(1));
             telegramLogoView.setTranslationY(bottomY + dp(14 + FAKE_TOP_PADDING + 4.333f) + translationOffset /*titleView.getTranslationY() + dpf2(37.33f)*/);
@@ -969,6 +994,15 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
             subtitleOverlayContainer.setTranslationX(titleView.getTranslationX());
             subtitleOverlayContainer.setTranslationY(bottomY + dp(15 + FAKE_TOP_PADDING + 4.333f + 8));
+
+            if (centerCollapsedRow && collapsedProgress >= 1f) {
+                // The row's width, for the next frames to center it: the same wherever it starts
+                final float width = getHeaderContentRight() - getX() - listViewMini.getX();
+                if (width > 0 && Math.abs(width - centerRowWidth) > 0.5f) {
+                    centerRowWidth = width;
+                    invalidate();
+                }
+            }
         }
 
         // Collapsed into a Liquid Glass header, the row stretches with the glass pill under it

@@ -3208,6 +3208,68 @@ public class DialogCell extends BaseCell implements StoriesListPlaceProvider.Ava
         invalidate();
     }
 
+    // glassGram: Edit on the chats list's iOS-like header: the row moves aside for a selection
+    // circle at its start, as on iOS (DialogsActivity.getGlassgramEditProgress)
+    private static final int GLASSGRAM_EDIT_SHIFT_DP = 44;
+    private org.telegram.ui.Components.AnimatedFloat glassgramEditCheck;
+    private long glassgramEditDialogId;
+    private Paint glassgramEditPaint;
+    private Path glassgramEditPath;
+
+    @Override
+    public void draw(Canvas canvas) {
+        final float edit = parentFragment != null && currentDialogId != 0 ? parentFragment.getGlassgramEditProgress() : 0f;
+        if (edit <= 0f) {
+            super.draw(canvas);
+            return;
+        }
+        final float shift = dp(GLASSGRAM_EDIT_SHIFT_DP) * edit;
+        drawGlassgramEditCircle(canvas, edit);
+        canvas.save();
+        canvas.translate(LocaleController.isRTL ? -shift : shift, 0);
+        super.draw(canvas);
+        canvas.restore();
+    }
+
+    private void drawGlassgramEditCircle(Canvas canvas, float edit) {
+        if (glassgramEditCheck == null) {
+            glassgramEditCheck = new org.telegram.ui.Components.AnimatedFloat(this, 0, 260, CubicBezierInterpolator.EASE_OUT_QUINT);
+            glassgramEditPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            glassgramEditPath = new Path();
+        }
+        final boolean selected = parentFragment.isGlassgramEditSelected(currentDialogId);
+        // A row given to another chat shows its state at once
+        final float checked = glassgramEditCheck.set(selected ? 1f : 0f, glassgramEditDialogId != currentDialogId);
+        glassgramEditDialogId = currentDialogId;
+        final float r = dp(11);
+        final float start = dp(24) - dp(GLASSGRAM_EDIT_SHIFT_DP) * (1f - edit);
+        final float cx = LocaleController.isRTL ? getMeasuredWidth() - start : start;
+        final float cy = getMeasuredHeight() / 2f;
+        final int alpha = (int) (255 * edit);
+        glassgramEditPaint.setStyle(Paint.Style.STROKE);
+        glassgramEditPaint.setStrokeWidth(AndroidUtilities.dpf2(1.5f));
+        glassgramEditPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourcesProvider));
+        glassgramEditPaint.setAlpha((int) (alpha * 0.7f * (1f - checked)));
+        canvas.drawCircle(cx, cy, r, glassgramEditPaint);
+        if (checked > 0f) {
+            glassgramEditPaint.setStyle(Paint.Style.FILL);
+            glassgramEditPaint.setColor(Theme.getColor(Theme.key_chats_actionBackground, resourcesProvider));
+            glassgramEditPaint.setAlpha((int) (alpha * checked));
+            canvas.drawCircle(cx, cy, r * (0.6f + 0.4f * checked), glassgramEditPaint);
+            glassgramEditPath.rewind();
+            glassgramEditPath.moveTo(cx - r * 0.42f, cy + r * 0.02f);
+            glassgramEditPath.lineTo(cx - r * 0.1f, cy + r * 0.34f);
+            glassgramEditPath.lineTo(cx + r * 0.45f, cy - r * 0.3f);
+            glassgramEditPaint.setStyle(Paint.Style.STROKE);
+            glassgramEditPaint.setStrokeWidth(AndroidUtilities.dpf2(2f));
+            glassgramEditPaint.setStrokeCap(Paint.Cap.ROUND);
+            glassgramEditPaint.setStrokeJoin(Paint.Join.ROUND);
+            glassgramEditPaint.setColor(Theme.getColor(Theme.key_chats_actionIcon, resourcesProvider));
+            glassgramEditPaint.setAlpha((int) (alpha * checked));
+            canvas.drawPath(glassgramEditPath, glassgramEditPaint);
+        }
+    }
+
     public void setChecked(boolean checked, boolean animated) {
         if (checkBox == null && !checked) {
             return;

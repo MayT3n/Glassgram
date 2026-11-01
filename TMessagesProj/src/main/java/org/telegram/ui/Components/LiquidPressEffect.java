@@ -163,6 +163,11 @@ public class LiquidPressEffect {
      * canvas): the caller draws its glass itself, and {@link #drawGlow} over it.
      */
     public boolean drawGlass(Canvas canvas, float left, float top, float right, float bottom, float radius, BlurredBackgroundDrawable glass, int alpha) {
+        return drawGlass(canvas, left, top, right, bottom, radius, glass, alpha, 0);
+    }
+
+    /** Like the one above, the glass tinted with a color (a filled button, as the chats list's new message one); 0 for none. */
+    public boolean drawGlass(Canvas canvas, float left, float top, float right, float bottom, float radius, BlurredBackgroundDrawable glass, int alpha, int tint) {
         if (!isButton() || glass == null) {
             return false;
         }
@@ -185,7 +190,7 @@ public class LiquidPressEffect {
             }
             glass.updateDisplayList();
         }
-        return drawButton(canvas, left, top, right, bottom, radius, surfaceOf(glass.getBackgroundColor()), 0, alpha);
+        return drawButton(canvas, left, top, right, bottom, radius, surfaceOf(glass.getBackgroundColor()), tint, alpha);
     }
 
     /**

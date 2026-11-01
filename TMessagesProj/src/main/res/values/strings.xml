@@ -11325,6 +11325,10 @@
     <string name="GlassgramHideStories">Hide Stories</string>
     <string name="GlassgramHeaderBadge">My Badge in the Header</string>
     <string name="GlassgramGlassHeader">Glass Chats List Header</string>
+    <string name="GlassgramIosChatsHeader">iOS-Style Chats Header</string>
+    <string name="GlassgramHeaderEdit">Edit</string>
+    <string name="GlassgramEditReadAll">Read All</string>
+    <string name="GlassgramEditRead">Read</string>
     <string name="GlassgramSplitInput">Split Message Field</string>
     <string name="GlassgramUpdateTitle">glassGram update</string>
     <string name="GlassgramApkStore">glassGram from RuStore doesn\'t install apps. Save the APK to Downloads and open it from a file manager.</string>

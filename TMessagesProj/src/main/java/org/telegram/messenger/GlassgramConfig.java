@@ -75,6 +75,11 @@ public class GlassgramConfig {
     public static boolean hideStories;
     public static boolean headerBadge = true;
     public static boolean glassHeader = true;
+    /**
+     * The glass chats list header laid out as on iOS: Edit on the left, the title in the middle,
+     * proxy and stories in a capsule on the right with the new message button in the theme's color.
+     */
+    public static boolean iosChatsHeader = true;
     /** Menus, dialogs and sheets drawn as Liquid Glass (LiquidPanelDrawable), where the phone can. */
     public static boolean glassPanels = true;
     /** The message input split into glass pieces: attach circle, field, send circle (and the bots' menu). */
@@ -305,6 +310,7 @@ public class GlassgramConfig {
         hideStories = p.getBoolean("hideStories", false);
         headerBadge = p.getBoolean("headerBadge", true);
         glassHeader = p.getBoolean("glassHeader", true);
+        iosChatsHeader = p.getBoolean("iosChatsHeader", true);
         glassPanels = p.getBoolean("glassPanels", true);
         splitInput = p.getBoolean("splitInput", true);
         iosTransitions = p.getBoolean("iosTransitions", true);

@@ -313,6 +313,74 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         glassOnlyBack = true;
     }
 
+    // glassGram: as on iOS, a page's glass header comes out of a blur as the page slides in, and goes
+    // into one as it slides away (ActionBarLayout). A property of the bar's RenderNode, so it shows on
+    // a page drawn as a still picture during the slide as well, without the page being drawn again
+    private float glassgramAppear = 1f;
+
+    /** 1 shows the bar as it is; less blurs it and fades it out, 0 hides it. */
+    public void setGlassgramAppear(float appear) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+            return;
+        }
+        appear = Math.max(0f, Math.min(1f, appear));
+        if (glassgramAppear == appear) {
+            return;
+        }
+        glassgramAppear = appear;
+        if (appear >= 1f) {
+            setRenderEffect(null);
+            return;
+        }
+        final float radius = dp(10) * (1f - appear);
+        final android.graphics.ColorMatrix fade = new android.graphics.ColorMatrix();
+        fade.setScale(1f, 1f, 1f, appear);
+        final android.graphics.RenderEffect fadeEffect = android.graphics.RenderEffect.createColorFilterEffect(new android.graphics.ColorMatrixColorFilter(fade));
+        if (radius >= 0.5f) {
+            final android.graphics.RenderEffect blur = android.graphics.RenderEffect.createBlurEffect(radius, radius, android.graphics.Shader.TileMode.DECAL);
+            setRenderEffect(android.graphics.RenderEffect.createChainEffect(blur, fadeEffect));
+        } else {
+            setRenderEffect(fadeEffect);
+        }
+    }
+
+    // glassGram: the chats list's iOS-like header. The menu's capsule moves in from the end for a
+    // button of the screen's own there (new message), and the pill shows only under the selection
+    // bar: the title stands in the middle of the bar on its own
+    private int glassMenuEndInset;
+    private boolean glassPillOnlyForActionMode;
+
+    /** Moves the menu and its glass this far in from the end, for a button placed there. */
+    public void setGlassMenuEndInset(int inset) {
+        if (glassMenuEndInset != inset) {
+            glassMenuEndInset = inset;
+            requestLayout();
+            invalidate();
+        }
+    }
+
+    public int getGlassMenuEndInset() {
+        return glassMenuEndInset;
+    }
+
+    /** Shows the title's glass pill only for the selection bar (and search) on it. */
+    public void setGlassPillOnlyForActionMode(boolean value) {
+        if (glassPillOnlyForActionMode != value) {
+            glassPillOnlyForActionMode = value;
+            invalidate();
+        }
+    }
+
+    private float glassMenuLeftDrawn = Float.NaN;
+
+    /**
+     * Where the menu's glass starts, in this bar's coordinates, as last drawn (the title is laid out
+     * before the menu's glass is drawn); where it would end without items, without one drawn yet.
+     */
+    public float getGlassMenuLeft() {
+        return Float.isNaN(glassMenuLeftDrawn) ? getWidth() - glassMenuEndInset - dp(6) : glassMenuLeftDrawn;
+    }
+
     /* Glassgram: the unread messages of the other chats next to the back chevron, as on iOS */
 
     private int glassBackCounterValue;
@@ -2209,7 +2277,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         textLeft += additionalTextLeft;
 
         if (menu != null && menu.getVisibility() != GONE) {
-            int menuLeft = menu.searchFieldVisible() ? dp(menuOccupyBack ? 0 : AndroidUtilities.isTablet() ? 74 : 66) : (getMeasuredWidth()) - menu.getMeasuredWidth() - glassButtonsIosShift(dp(24));
+            int menuLeft = menu.searchFieldVisible() ? dp(menuOccupyBack ? 0 : AndroidUtilities.isTablet() ? 74 : 66) : (getMeasuredWidth()) - menu.getMeasuredWidth() - glassButtonsIosShift(dp(24)) - glassMenuEndInset;
             menu.layout(menuLeft, additionalTop, menuLeft + menu.getMeasuredWidth(), additionalTop + menu.getMeasuredHeight());
         }
 
@@ -3080,8 +3148,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
             final int pillOffset = glassPillContent != null ? (int) glassPillContent.getContentOffsetY() : 0;
             glassDrawable.setBounds(left, t + pillOffset, right, b + pillOffset);
-            if (glassAlpha * glassPillAlpha > 0) {
-                glassDrawable.setAlpha((int) (255 * glassAlpha * glassPillAlpha));
+            final float pillAlpha = glassPillAlpha * (glassPillOnlyForActionMode ? Math.max(actionModeFactor, searchFactor) : 1f);
+            if (glassAlpha * pillAlpha > 0) {
+                glassDrawable.setAlpha((int) (255 * glassAlpha * pillAlpha));
                 drawGlass(canvas, glassDrawable, GLASS_PILL, p);
             }
         }
@@ -3093,8 +3162,14 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             glassDrawableBack.setAlpha((int) (255 * glassAlpha * backAlpha));
             drawGlass(canvas, glassDrawableBack, GLASS_BACK, p);
         }
+        if (!(menuWidth > 0)) {
+            glassMenuLeftDrawn = Float.NaN;
+        }
         if (glassDrawableMenu != null && menuWidth > 0 && !glassOnlyBack && !doNotDrawGlassMenu && glassAlpha > 0) {
-            glassDrawableMenu.setBounds(getWidth() - Math.max(si, menuWidth) - p - mi, t, getWidth() - mi + p, b);
+            // Moved in from the end for the screen's own button there, back for the selection bar's actions
+            final int endInset = (int) (glassMenuEndInset * (1f - actionModeFactor));
+            glassDrawableMenu.setBounds(getWidth() - Math.max(si, menuWidth) - p - mi - endInset, t, getWidth() - mi + p - endInset, b);
+            glassMenuLeftDrawn = getWidth() - Math.max(si, menuWidth) - mi - endInset;
             glassDrawableMenu.setAlpha((int) (glassAlpha * (hasForcedMenuWidth ? 255 : 255 * Math.max(endFactor, animatorHasMenuItems.getFloatValue()))));
             drawGlass(canvas, glassDrawableMenu, GLASS_MENU, p);
             if (glassEndView != null) {

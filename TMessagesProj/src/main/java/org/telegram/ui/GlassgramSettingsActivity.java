@@ -202,6 +202,7 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     private static final int ID_GHOST_SCHEDULE = 168;
     private static final int ID_GHOST_SILENT = 169;
     private static final int ID_GHOST_STORY_ALERT = 170;
+    private static final int ID_IOS_CHATS_HEADER = 171;
     private static final int ID_MENU_ITEM = 300;
     private static final int ID_LOCKED_CHAT = 400;
 
@@ -350,6 +351,9 @@ public class GlassgramSettingsActivity extends UniversalFragment {
                 items.add(UItem.asCheck(ID_HIDE_STORIES, getString(R.string.GlassgramHideStories)).setChecked(GlassgramConfig.hideStories));
                 items.add(UItem.asCheck(ID_HEADER_BADGE, getString(R.string.GlassgramHeaderBadge)).setChecked(GlassgramConfig.headerBadge));
                 items.add(UItem.asCheck(ID_GLASS_HEADER, getString(R.string.GlassgramGlassHeader)).setChecked(GlassgramConfig.glassHeader));
+                if (GlassgramConfig.glassHeader) {
+                    items.add(UItem.asCheck(ID_IOS_CHATS_HEADER, getString(R.string.GlassgramIosChatsHeader)).setChecked(GlassgramConfig.iosChatsHeader));
+                }
                 items.add(UItem.asCheck(ID_HIDE_FAB, getString(R.string.GlassgramHideFloatingButton)).setChecked(GlassgramConfig.hideFloatingButton));
                 items.add(UItem.asCheck(ID_SPLIT_INPUT, getString(R.string.GlassgramSplitInput)).setChecked(GlassgramConfig.splitInput));
                 items.add(UItem.asCheck(ID_GLASS_PANELS, getString(R.string.GlassgramGlassPanels)).setChecked(GlassgramConfig.glassPanels));
@@ -968,6 +972,12 @@ public class GlassgramSettingsActivity extends UniversalFragment {
             case ID_GLASS_HEADER:
                 value = GlassgramConfig.glassHeader = !GlassgramConfig.glassHeader;
                 GlassgramConfig.putBoolean("glassHeader", value);
+                // The iOS layout is a way of the glass header: shown with it
+                if (listView != null) listView.adapter.update(true);
+                break;
+            case ID_IOS_CHATS_HEADER:
+                value = GlassgramConfig.iosChatsHeader = !GlassgramConfig.iosChatsHeader;
+                GlassgramConfig.putBoolean("iosChatsHeader", value);
                 break;
             case ID_GLASS_PANELS:
                 value = GlassgramConfig.glassPanels = !GlassgramConfig.glassPanels;

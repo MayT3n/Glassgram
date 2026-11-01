@@ -1036,10 +1036,50 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     @Keep
+    // glassGram: as on iOS, the glass header of the page coming in comes out of a blur as it slides,
+    // and the one going away goes into it (ActionBar.setGlassgramAppear); back to normal at the end
+    private final ArrayList<ActionBar> glassgramAppearBars = new ArrayList<>();
+
+    private void glassgramHeaderAppear(BaseFragment fragment, float appear) {
+        if (fragment == null || !org.telegram.messenger.GlassgramConfig.iosChatsHeader) {
+            return;
+        }
+        final ActionBar bar = fragment.getActionBar();
+        if (bar == null || !bar.hasLiquidGlassButtons()) {
+            return;
+        }
+        if (!glassgramAppearBars.contains(bar)) {
+            glassgramAppearBars.add(bar);
+        }
+        bar.setGlassgramAppear(appear);
+    }
+
+    private void glassgramResetHeaderAppear() {
+        for (int i = 0; i < glassgramAppearBars.size(); i++) {
+            glassgramAppearBars.get(i).setGlassgramAppear(1f);
+        }
+        glassgramAppearBars.clear();
+    }
+
+    /** The slide's progress to how far a header shows: clear well before the page is all in. */
+    private static float glassgramAppearOf(float progress) {
+        return Math.max(0f, Math.min(1f, progress * 1.4f - 0.1f));
+    }
+
     public void setInnerTranslationX(float value) {
         innerTranslationX = value;
         invalidate();
         glassgramUpdateBackParallax(value);
+        if (fragmentsStack.size() >= 2 && containerView.getMeasuredWidth() > 0) {
+            if (value <= 0f) {
+                glassgramResetHeaderAppear();
+            } else {
+                // The swipe back: the page underneath comes in, the swiped one goes
+                final float slide = Math.min(1f, value / containerView.getMeasuredWidth());
+                glassgramHeaderAppear(fragmentsStack.get(fragmentsStack.size() - 2), glassgramAppearOf(slide));
+                glassgramHeaderAppear(fragmentsStack.get(fragmentsStack.size() - 1), glassgramAppearOf(1f - slide));
+            }
+        }
 
         if (fragmentsStack.size() >= 2 && containerView.getMeasuredWidth() > 0) {
             float progress;
@@ -1861,6 +1901,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             containerViewBack.setTranslationX(0);
             invalidate();
         }
+        glassgramResetHeaderAppear();
     }
 
     public BaseFragment getLastFragment() {
@@ -2023,6 +2064,10 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     interpolated = glassgramSlideInterpolator.getInterpolation(animationProgress);
                 } else {
                     interpolated = decelerateInterpolator.getInterpolation(animationProgress);
+                }
+                if (iosSlide) {
+                    glassgramHeaderAppear(newFragment, glassgramAppearOf(interpolated));
+                    glassgramHeaderAppear(oldFragment, glassgramAppearOf(1f - interpolated));
                 }
                 if (iosSlide) {
                     // glassGram: opening slides the new page (containerView) in over the old one;

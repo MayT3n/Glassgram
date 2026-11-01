@@ -201,6 +201,8 @@ import org.telegram.ui.Components.blur3.capture.IBlur3Capture;
 import org.telegram.ui.Components.blur3.capture.IBlur3Hash;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
+import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProvider;
+import org.telegram.ui.Components.GlassgramHeaderButton;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSource;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceColor;
 import org.telegram.ui.Components.blur3.source.BlurredBackgroundSourceRenderNode;
@@ -1690,7 +1692,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         containersAlpha *= (1f - factorSearch);
         if (containersAlpha != 1f) {
             actionBar.getTitlesContainer().setPivotY(AndroidUtilities.statusBarHeight);
-            actionBar.getTitlesContainer().setPivotX(dp(20));
+            actionBar.getTitlesContainer().setPivotX(glassgramTitlePivotX());
             float s = 0.4f + 0.6f * containersAlpha;
             actionBar.getTitlesContainer().setScaleY(s);
             actionBar.getTitlesContainer().setScaleX(s);
@@ -2447,7 +2449,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         @Override
         public int getMovementFlags(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder) {
-            if (waitingForDialogsAnimationEnd(parentPage) || parentLayout != null && parentLayout.isInPreviewMode() || rightSlidingDialogContainer.hasFragment() || communityId != 0) {
+            if (waitingForDialogsAnimationEnd(parentPage) || parentLayout != null && parentLayout.isInPreviewMode() || rightSlidingDialogContainer.hasFragment() || communityId != 0 || glassgramEditing) {
                 return 0;
             }
             if (swipingFolder && swipeFolderBack) {
@@ -3064,6 +3066,248 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     /** The chats list header is Liquid Glass (Glassgram Preferences). */
     private boolean glassHeader;
 
+    // glassGram: the glass header laid out as on iOS (GlassgramConfig.iosChatsHeader): Edit on the
+    // left, the title in the middle, proxy and stories in the menu's capsule on the right and the new
+    // message button at the end in the theme's color, in place of the floating buttons; the menu's
+    // other items (⋮) open on holding that button
+    private boolean glassgramIosHeader;
+    private FrameLayout glassgramHeaderButtons;
+    private GlassgramHeaderButton glassgramEditButton;
+    private GlassgramHeaderButton glassgramComposeButton;
+    private ActionBarMenuItem glassgramProxyItem;
+    private ProxyDrawable glassgramProxyDrawable;
+    private ActionBarMenuItem glassgramStoryItem;
+    private static final int GLASSGRAM_PROXY_ITEM = 40;
+    private static final int GLASSGRAM_STORY_ITEM = 41;
+    /** The glass pieces' size and their distance from the bar's edges, as the bar's own (ActionBar). */
+    private static final int GLASSGRAM_BUTTON_DP = 46, GLASSGRAM_BUTTON_MARGIN_DP = 6;
+
+    // Edit: chats are chosen with circles at the start of their rows, and the bottom tabs give way
+    // to Read (all) and Delete
+    private boolean glassgramEditing;
+    private float glassgramEditProgress;
+    private ValueAnimator glassgramEditAnimator;
+    private final ArrayList<Long> glassgramEditSelected = new ArrayList<>();
+    private FrameLayout glassgramEditBar;
+    private GlassgramHeaderButton glassgramReadButton;
+    private GlassgramHeaderButton glassgramDeleteButton;
+
+    /** How far Edit is shown, 0 to 1: the rows draw their circles by it (DialogCell). */
+    public float getGlassgramEditProgress() {
+        return glassgramEditProgress;
+    }
+
+    public boolean isGlassgramEditSelected(long dialogId) {
+        return glassgramEditSelected.contains(dialogId);
+    }
+
+    /** Lays out the iOS-like header's buttons and centers the title, or the stories row in its place. */
+    private void glassgramCreateIosHeader(Context context) {
+        final BlurredBackgroundColorProvider colors = BlurredBackgroundProviderImpl.topPanel(resourceProvider);
+        glassgramHeaderButtons = new FrameLayout(context);
+        glassgramHeaderButtons.setClipChildren(false);
+        glassgramHeaderButtons.setClipToPadding(false);
+        actionBar.addView(glassgramHeaderButtons, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        final int bottom = (ActionBar.getCurrentActionBarHeight() - dp(GLASSGRAM_BUTTON_DP)) / 2;
+        glassgramEditButton = new GlassgramHeaderButton(context, iBlur3FactoryLiquidGlass, colors);
+        glassgramEditButton.setAnchor(Gravity.LEFT);
+        glassgramEditButton.setText(getString(R.string.GlassgramHeaderEdit), false);
+        glassgramEditButton.setContentColor(getThemedColor(Theme.key_actionBarDefaultIcon));
+        glassgramEditButton.setOnClickListener(v -> setGlassgramEditing(!glassgramEditing));
+        final FrameLayout.LayoutParams editParams = LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, GLASSGRAM_BUTTON_DP, Gravity.LEFT | Gravity.BOTTOM, GLASSGRAM_BUTTON_MARGIN_DP, 0, 0, 0);
+        editParams.bottomMargin = bottom;
+        glassgramHeaderButtons.addView(glassgramEditButton, editParams);
+
+        glassgramComposeButton = new GlassgramHeaderButton(context, iBlur3FactoryLiquidGlass, colors);
+        glassgramComposeButton.setIcon(R.drawable.glassgram_compose_24);
+        glassgramComposeButton.setContentColor(getThemedColor(Theme.key_chats_actionIcon));
+        glassgramComposeButton.setTint(getThemedColor(Theme.key_chats_actionBackground));
+        glassgramComposeButton.setContentDescription(getString(R.string.NewMessageTitle));
+        glassgramComposeButton.setOnClickListener(v -> {
+            if (MessagesController.getInstance(currentAccount).isFrozen()) {
+                AccountFrozenAlert.show(currentAccount);
+                return;
+            }
+            openWriteContacts();
+        });
+        glassgramComposeButton.setOnLongClickListener(v -> {
+            getContactsController().loadGlobalPrivacySetting();
+            showItemOptions();
+            return true;
+        });
+        final FrameLayout.LayoutParams composeParams = LayoutHelper.createFrame(GLASSGRAM_BUTTON_DP, GLASSGRAM_BUTTON_DP, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, GLASSGRAM_BUTTON_MARGIN_DP, 0);
+        composeParams.bottomMargin = bottom;
+        glassgramHeaderButtons.addView(glassgramComposeButton, composeParams);
+
+        // The menu's capsule ends a gap before the new message button
+        actionBar.setGlassMenuEndInset(dp(GLASSGRAM_BUTTON_DP + GLASSGRAM_BUTTON_MARGIN_DP));
+        actionBar.setGlassPillOnlyForActionMode(true);
+    }
+
+    /** Centers the title, or the stories collapsed in its place, between the header's buttons; on every frame of the bar. */
+    private void glassgramLayoutIosHeader() {
+        if (!glassgramIosHeader || actionBar == null || glassgramEditButton == null) {
+            return;
+        }
+        final float minLeft = glassgramEditButton.getX() + glassgramEditButton.getWidth() + dp(8);
+        final float maxRight = actionBar.getGlassMenuLeft() - dp(8);
+        final FrameLayout titles = actionBar.getTitlesContainer();
+        final SimpleTextView title = actionBar.getTitleTextView();
+        if (titles != null && title != null && title.getWidth() > 0) {
+            final boolean withStatus = statusDrawable != null && statusDrawable.getDrawable() != null;
+            final float contentLeft = title.getLeft();
+            final float width = title.getContentRight(withStatus);
+            float left = (actionBar.getWidth() - width) / 2f;
+            left = Math.max(minLeft, Math.min(left, maxRight - width));
+            final float tx = left - contentLeft;
+            if (Math.abs(titles.getTranslationX() - tx) > 0.5f) {
+                titles.setTranslationX(tx);
+            }
+        }
+        if (dialogStoriesCell != null) {
+            dialogStoriesCell.setCenterCollapsedRow(true, minLeft - dialogStoriesCell.getX(), dialogStoriesCell.getX() + dialogStoriesCell.getWidth() - maxRight);
+        }
+    }
+
+    /** Where the title shrinks to as the stories take its place: its middle on the iOS-like header. */
+    private float glassgramTitlePivotX() {
+        final SimpleTextView title = actionBar.getTitleTextView();
+        if (glassgramIosHeader && title != null) {
+            final boolean withStatus = statusDrawable != null && statusDrawable.getDrawable() != null;
+            return title.getLeft() + title.getContentRight(withStatus) / 2f;
+        }
+        return dp(20);
+    }
+
+    private void setGlassgramEditing(boolean editing) {
+        if (glassgramEditing == editing || !glassgramIosHeader) {
+            return;
+        }
+        if (editing && (actionBar.isActionModeShowed() || searching || rightSlidingDialogContainer != null && rightSlidingDialogContainer.hasFragment())) {
+            return;
+        }
+        glassgramEditing = editing;
+        glassgramEditSelected.clear();
+        if (glassgramEditButton != null) {
+            glassgramEditButton.setText(getString(editing ? R.string.Done : R.string.GlassgramHeaderEdit), true);
+        }
+        if (editing) {
+            glassgramCreateEditBar();
+        }
+        glassgramUpdateEditBar();
+        if (glassgramEditAnimator != null) {
+            glassgramEditAnimator.cancel();
+        }
+        glassgramEditAnimator = ValueAnimator.ofFloat(glassgramEditProgress, editing ? 1f : 0f);
+        glassgramEditAnimator.setDuration(320);
+        glassgramEditAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+        glassgramEditAnimator.addUpdateListener(a -> {
+            glassgramEditProgress = (float) a.getAnimatedValue();
+            glassgramApplyEditProgress();
+        });
+        glassgramEditAnimator.start();
+        checkUi_mainTabsVisible();
+    }
+
+    private void glassgramApplyEditProgress() {
+        final float p = glassgramEditProgress;
+        if (glassgramComposeButton != null) {
+            glassgramComposeButton.setAlpha(1f - p);
+            glassgramComposeButton.setScaleX(lerp(1f, 0.6f, p));
+            glassgramComposeButton.setScaleY(lerp(1f, 0.6f, p));
+            glassgramComposeButton.setVisibility(p < 1f ? View.VISIBLE : View.INVISIBLE);
+        }
+        if (glassgramEditBar != null) {
+            glassgramEditBar.setAlpha(p);
+            glassgramEditBar.setTranslationY(-navigationBarHeight + dp(16) * (1f - p));
+            glassgramEditBar.setVisibility(p > 0f ? View.VISIBLE : View.GONE);
+        }
+        checkUi_menuItems();
+        for (int i = 0; viewPages != null && i < viewPages.length; i++) {
+            if (viewPages[i] == null) {
+                continue;
+            }
+            final RecyclerListView list = viewPages[i].listView;
+            for (int j = 0; j < list.getChildCount(); j++) {
+                list.getChildAt(j).invalidate();
+            }
+        }
+    }
+
+    private void glassgramCreateEditBar() {
+        if (glassgramEditBar != null || !(fragmentView instanceof ViewGroup)) {
+            return;
+        }
+        final Context context = getContext();
+        final BlurredBackgroundColorProvider colors = BlurredBackgroundProviderImpl.topPanel(resourceProvider);
+        glassgramEditBar = new FrameLayout(context);
+        glassgramEditBar.setClipChildren(false);
+        glassgramEditBar.setClipToPadding(false);
+        glassgramReadButton = new GlassgramHeaderButton(context, iBlur3FactoryLiquidGlass, colors);
+        glassgramReadButton.setAnchor(Gravity.LEFT);
+        glassgramReadButton.setText(getString(R.string.GlassgramEditReadAll), false);
+        glassgramReadButton.setOnClickListener(v -> glassgramReadSelected());
+        glassgramEditBar.addView(glassgramReadButton, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 48, Gravity.LEFT | Gravity.CENTER_VERTICAL, 16, 0, 0, 0));
+        glassgramDeleteButton = new GlassgramHeaderButton(context, iBlur3FactoryLiquidGlass, colors);
+        glassgramDeleteButton.setAnchor(Gravity.RIGHT);
+        glassgramDeleteButton.setText(getString(R.string.Delete), false);
+        glassgramDeleteButton.setOnClickListener(v -> glassgramDeleteSelected());
+        glassgramEditBar.addView(glassgramDeleteButton, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, 48, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 16, 0));
+        glassgramEditBar.setVisibility(View.GONE);
+        ((ViewGroup) fragmentView).addView(glassgramEditBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, MAIN_TABS_HEIGHT, Gravity.BOTTOM, 0, 0, 0, MAIN_TABS_MARGIN));
+    }
+
+    /** Read all while nothing is chosen, Read for the chosen; Delete is grey and does nothing without them. */
+    private void glassgramUpdateEditBar() {
+        if (glassgramReadButton == null) {
+            return;
+        }
+        final boolean chosen = !glassgramEditSelected.isEmpty();
+        glassgramReadButton.setText(getString(chosen ? R.string.GlassgramEditRead : R.string.GlassgramEditReadAll), true);
+        glassgramReadButton.setContentColor(getThemedColor(Theme.key_actionBarDefaultIcon));
+        glassgramDeleteButton.setContentColor(chosen ? getThemedColor(Theme.key_text_RedRegular) : getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
+        glassgramDeleteButton.setEnabled(chosen);
+        glassgramDeleteButton.setClickable(chosen);
+    }
+
+    private void glassgramToggleEditSelected(long dialogId) {
+        if (glassgramEditSelected.contains(dialogId)) {
+            glassgramEditSelected.remove(dialogId);
+        } else {
+            glassgramEditSelected.add(dialogId);
+        }
+        glassgramUpdateEditBar();
+        glassgramApplyEditProgress();
+    }
+
+    private void glassgramReadSelected() {
+        if (glassgramEditSelected.isEmpty()) {
+            final ArrayList<TLRPC.Dialog> dialogs = new ArrayList<>(getDialogsArray(currentAccount, viewPages[0].dialogsType, folderId, false));
+            markDialogsAsRead(dialogs);
+        } else {
+            for (int i = 0; i < glassgramEditSelected.size(); i++) {
+                markAsRead(glassgramEditSelected.get(i));
+            }
+        }
+        setGlassgramEditing(false);
+    }
+
+    private void glassgramDeleteSelected() {
+        if (glassgramEditSelected.isEmpty()) {
+            return;
+        }
+        // Telegram's own deletion, with its questions: it reads what the chosen chats allow from
+        // the selection's counters
+        createActionMode(null);
+        selectedDialogs.clear();
+        selectedDialogs.addAll(glassgramEditSelected);
+        updateCounters(false);
+        performSelectedDialogsAction(new ArrayList<>(glassgramEditSelected), delete, true, false);
+        selectedDialogs.clear();
+        setGlassgramEditing(false);
+    }
+
     private float glassHeaderRestRowDelta = Float.NaN;
 
     /** The collapsed stories row moves down when the list is pulled; the pill goes with it. */
@@ -3390,6 +3634,19 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             downloadsItem.setContentDescription(getString(R.string.DownloadsTabs));
             downloadsItem.setVisibility(View.GONE);
 
+            glassgramIosHeader = org.telegram.messenger.GlassgramConfig.glassHeader && org.telegram.messenger.GlassgramConfig.iosChatsHeader && initialDialogsType == DIALOGS_TYPE_DEFAULT;
+            if (glassgramIosHeader) {
+                // The proxy's shield and the stories' camera in the menu's capsule, as on iOS
+                // Its own shield: one drawable animates only in the last view it was given to
+                glassgramProxyDrawable = new ProxyDrawable(context);
+                glassgramProxyItem = menu.addItem(GLASSGRAM_PROXY_ITEM, glassgramProxyDrawable);
+                glassgramProxyItem.setContentDescription(getString(R.string.ProxySettings));
+                glassgramProxyItem.setOnClickListener(v -> presentFragment(new ProxyListActivity()));
+                glassgramStoryItem = menu.addItem(GLASSGRAM_STORY_ITEM, R.drawable.outline_fab_story_24);
+                glassgramStoryItem.setContentDescription(getString(R.string.StoryPrivacyButtonPost));
+                glassgramStoryItem.setOnClickListener(v -> openStoriesRecorder());
+            }
+
             updateProxyButton(false, false);
         }
 
@@ -3433,6 +3690,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         fragmentSearchField.editText.addTextChangedListener(fragmentSearchFieldWatcher = new SearchTextWatcher(fragmentSearchField.editText, new ActionBarMenuItem.ActionBarMenuItemSearchListener() {
             @Override
             public void onSearchExpand() {
+                setGlassgramEditing(false);
                 searching = true;
                 if (switchItem != null) {
                     switchItem.setVisibility(View.GONE);
@@ -3654,9 +3912,13 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     // The chats list keeps its large title (the badges follow its size) close to the pill's edge
                     actionBar.setGlassTitleSize(!AndroidUtilities.isTablet() && context.getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE ? 18 : 20);
                     actionBar.setAdditionalTextLeft(-dp(8));
+                    if (glassgramIosHeader) {
+                        glassgramCreateIosHeader(context);
+                    }
                     actionBar.setGlassPillContent(new ActionBar.GlassPillContent() {
                         @Override
                         public float getContentRight() {
+                            glassgramLayoutIosHeader();
                             return glassHeaderContentRight();
                         }
 
@@ -4911,7 +5173,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
         });
 
-        if (!isArchive() && initialDialogsType == DIALOGS_TYPE_DEFAULT) {
+        if (!isArchive() && initialDialogsType == DIALOGS_TYPE_DEFAULT && !glassgramIosHeader) {
             if (MessagesController.getInstance(currentAccount).getMainSettings().getBoolean("storyhint", true)) {
                 storyHint = new HintView2(context, HintView2.DIRECTION_RIGHT)
                         .setRounding(8)
@@ -7436,6 +7698,12 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     @Override
     public boolean onBackPressed(boolean invoked) {
+        if (glassgramEditing) {
+            if (invoked) {
+                setGlassgramEditing(false);
+            }
+            return false;
+        }
         if (hasShownSheet()) {
             if (invoked) closeSheet();
             return false;
@@ -7912,6 +8180,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (glassHeader && actionBar != null) {
             // The search field takes the header's place: the glass goes away with the title
             actionBar.setGlassAlpha(1f - progress);
+            if (glassgramHeaderButtons != null) {
+                glassgramHeaderButtons.setAlpha(1f - progress);
+            }
         }
         if (whiteActionBar && actionBar != null) {
             int color1 = (folderId != 0 || communityId != 0) ? getThemedColor(Theme.key_actionBarDefaultArchivedIcon) : getThemedColor(Theme.key_actionBarDefaultIcon);
@@ -8066,7 +8337,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 TLRPC.Dialog dialog = (TLRPC.Dialog) object;
                 folderId = dialog.folder_id;
                 if (dialog instanceof TLRPC.TL_dialogFolder) {
-                    if (actionBar.isActionModeShowed(null)) {
+                    if (actionBar.isActionModeShowed(null) || glassgramEditing) {
                         return;
                     }
                     TLRPC.TL_dialogFolder dialogFolder = (TLRPC.TL_dialogFolder) dialog;
@@ -8173,6 +8444,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
         }
 
+        if (dialogId != 0 && glassgramEditing && adapter instanceof DialogsAdapter) {
+            // Edit: a tap chooses the chat
+            glassgramToggleEditSelected(dialogId);
+            return;
+        }
         if (dialogId == 0) {
             return;
         }
@@ -8459,7 +8735,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private boolean onItemLongClick(RecyclerListView listView, View view, int position, float x, float y, int dialogsType, RecyclerListView.Adapter adapter) {
-        if (getParentActivity() == null || view instanceof DialogsHintCell) {
+        if (getParentActivity() == null || view instanceof DialogsHintCell || glassgramEditing) {
             return false;
         }
         if (adapter.getItemViewType(position) == DialogsAdapter.VIEW_TYPE_FORWARD_TO_STORIES_CELL) {
@@ -9028,7 +9304,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void updateFloatingButtonVisibility(boolean animated) {
-        final boolean isVisible = !(onlySelect && initialDialogsType != 10 || folderId != 0 || communityId != 0 || inPreviewMode || (searching && !onlySelect) || floatingButtonHidden || org.telegram.messenger.GlassgramConfig.hideFloatingButton);
+        final boolean isVisible = !(onlySelect && initialDialogsType != 10 || folderId != 0 || communityId != 0 || inPreviewMode || (searching && !onlySelect) || floatingButtonHidden || org.telegram.messenger.GlassgramConfig.hideFloatingButton || glassgramIosHeader && glassHeader);
 
         if (floatingButton3 != null) {
             floatingButton3.setButtonVisible(isVisible, animated);
@@ -10424,6 +10700,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final boolean connected = currentConnectionState == ConnectionsManager.ConnectionStateConnected || currentConnectionState == ConnectionsManager.ConnectionStateUpdating;
         proxyMenuSubItem.setSubtext(getString(proxyEnabled ? (connected ? R.string.MenuProxyConnected : R.string.MenuProxyConnecting) : R.string.MenuProxyDisabled));
         proxyDrawable.setConnected(proxyEnabled, connected, animated);
+        if (glassgramProxyDrawable != null) {
+            glassgramProxyDrawable.setConnected(proxyEnabled, connected, animated);
+            checkUi_glassgramIosItems();
+        }
     }
 
     private AnimatorSet doneItemAnimator;
@@ -13902,7 +14182,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void showItemOptions() {
-        ItemOptions io = ItemOptions.makeOptions(this, optionsItem);
+        ItemOptions io = ItemOptions.makeOptions(this, glassgramIosHeader && glassgramComposeButton != null ? glassgramComposeButton : optionsItem);
         io.setColors(getThemedColor(Theme.key_actionBarDefaultTitle), getThemedColor(Theme.key_actionBarDefaultTitle));
         io.setDimAlpha(0x08);
 
@@ -14303,7 +14583,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void checkUi_mainTabsVisible() {
-        final boolean mainTabsVisible = !searching && (blurredView == null || blurredView.getBackground() == null || blurredView.getAlpha() < 0.01f || blurredView.getVisibility() == View.GONE);
+        final boolean mainTabsVisible = !searching && !glassgramEditing && (blurredView == null || blurredView.getBackground() == null || blurredView.getAlpha() < 0.01f || blurredView.getVisibility() == View.GONE);
         if (mainTabsActivityController != null) {
             mainTabsActivityController.setTabsVisible(mainTabsVisible);
         }
@@ -14350,6 +14630,44 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         checkUi_itemSpeedVisibility();
         checkUi_itemPasscodeVisibility();
         checkUi_itemSearchVisibility();
+        checkUi_glassgramIosItems();
+    }
+
+    /** The menu's items give way to Edit on the iOS-like header. */
+    private float glassgramMenuFactor() {
+        return 1f - glassgramEditProgress;
+    }
+
+    private void checkUi_glassgramIosItems() {
+        if (!glassgramIosHeader) {
+            return;
+        }
+        final float factor1 = 1f - animatorSearchVisible.getFloatValue();
+        final float factor2 = 1f - getRightSlidingProgress();
+        final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();
+        final float factor = factor1 * factor2 * factor3 * glassgramMenuFactor();
+        if (glassgramProxyItem != null) {
+            FragmentFloatingButton.setAnimatedVisibility(glassgramProxyItem, glassgramProxyShown() ? factor : 0);
+        }
+        if (glassgramStoryItem != null) {
+            FragmentFloatingButton.setAnimatedVisibility(glassgramStoryItem, storiesEnabled ? factor : 0);
+        }
+        if (glassgramHeaderButtons != null) {
+            final float buttons = factor2 * factor3;
+            glassgramHeaderButtons.setVisibility(buttons > 0 ? View.VISIBLE : View.INVISIBLE);
+            if (glassgramEditButton != null) {
+                glassgramEditButton.setAlpha(buttons);
+            }
+            if (glassgramComposeButton != null && glassgramEditProgress == 0) {
+                glassgramComposeButton.setAlpha(buttons);
+            }
+        }
+    }
+
+    /** The shield shows while there are proxies to use, as Telegram's own did. */
+    private boolean glassgramProxyShown() {
+        final SharedPreferences preferences = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
+        return preferences.getBoolean("proxy_enabled", false) || !SharedConfig.proxyList.isEmpty();
     }
 
     private void checkUi_itemBackButtonVisibility() {
@@ -14368,7 +14686,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final float factor1 = 1f - animatorSearchVisible.getFloatValue();
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();
-        final float factor = factor1 * factor2 * factor3;
+        // On the iOS-like header the new message button, held, opens these options
+        final float factor = glassgramIosHeader ? 0 : factor1 * factor2 * factor3;
         FragmentFloatingButton.setAnimatedVisibility(optionsItem, factor);
     }
 
@@ -14377,7 +14696,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final float factor1 = 1f - animatorSearchVisible.getFloatValue();
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();
-        final float factor = factor0 * factor1 * factor2 * factor3;
+        final float factor = factor0 * factor1 * factor2 * factor3 * glassgramMenuFactor();
         FragmentFloatingButton.setAnimatedVisibility(passcodeItem, factor);
     }
 
@@ -14386,7 +14705,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final float factor1 = 1f - animatorSearchVisible.getFloatValue();
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();
-        final float factor = factor0 * factor1 * factor2 * factor3;
+        final float factor = factor0 * factor1 * factor2 * factor3 * glassgramMenuFactor();
         FragmentFloatingButton.setAnimatedVisibility(downloadsItem, factor);
     }
 
@@ -14404,7 +14723,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         final float factor1 = animatorSearchButtonVisible.getFloatValue();
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();
-        final float factor = factor0 * factor1 * factor2 * factor3;
+        final float factor = factor0 * factor1 * factor2 * factor3 * glassgramMenuFactor();
         FragmentFloatingButton.setAnimatedVisibility(searchItem, factor);
         if (dialogStoriesCell != null) {
             dialogStoriesCell.invalidate();

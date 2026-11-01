@@ -288,6 +288,10 @@
     <string name="GlassgramHideStories">Скрыть истории</string>
     <string name="GlassgramHeaderBadge">Мой значок в шапке</string>
     <string name="GlassgramGlassHeader">Стеклянная шапка списка чатов</string>
+    <string name="GlassgramIosChatsHeader">Шапка списка чатов как в iOS</string>
+    <string name="GlassgramHeaderEdit">Изм.</string>
+    <string name="GlassgramEditReadAll">Прочитать все</string>
+    <string name="GlassgramEditRead">Прочитать</string>
     <string name="GlassgramSplitInput">Раздельное поле ввода</string>
     <string name="GlassgramUpdateTitle">Обновление glassGram</string>
     <string name="GlassgramApkStore">glassGram из RuStore не устанавливает приложения. Сохраните APK в «Загрузки» и откройте его в файловом менеджере.</string>
