@@ -313,9 +313,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         glassOnlyBack = true;
     }
 
-    // glassGram: as on iOS, a page's glass header comes out of a blur as the page slides in, and goes
-    // into one as it slides away (ActionBarLayout). A property of the bar's RenderNode, so it shows on
-    // a page drawn as a still picture during the slide as well, without the page being drawn again
+    // glassGram: a page's glass header fades and blurs away while ActionBarLayout draws it in place
+    // during a slide, as on iOS. A property of the bar's RenderNode, so it shows on a page drawn as a
+    // still picture during the slide as well, without the page being drawn again
     private float glassgramAppear = 1f;
 
     /** 1 shows the bar as it is; less blurs it and fades it out, 0 hides it. */
@@ -332,7 +332,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             setRenderEffect(null);
             return;
         }
-        final float radius = dp(10) * (1f - appear);
+        // Hidden (ActionBarLayout draws it in place of the page): no blur to work out
+        final float radius = appear <= 0f ? 0f : dp(10) * (1f - appear);
         final android.graphics.ColorMatrix fade = new android.graphics.ColorMatrix();
         fade.setScale(1f, 1f, 1f, appear);
         final android.graphics.RenderEffect fadeEffect = android.graphics.RenderEffect.createColorFilterEffect(new android.graphics.ColorMatrixColorFilter(fade));
@@ -361,6 +362,31 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     public int getGlassMenuEndInset() {
         return glassMenuEndInset;
+    }
+
+    // The chats list's iOS-like header has iOS's sizes too, as the chat's (iosHeaderSize): 44pt
+    // pieces 16pt from the edges, back to the bar's own for the selection bar
+    private boolean glassIosSizes;
+
+    public void setGlassIosSizes(boolean value) {
+        if (glassIosSizes != value) {
+            glassIosSizes = value;
+            requestLayout();
+            invalidate();
+        }
+    }
+
+    /** iOS's sizes of the iOS-like headers in pixels, for the screen's own buttons on them. */
+    public int getGlassIosButtonSize() {
+        return iosHeaderSize(IOS_BUTTON);
+    }
+
+    public int getGlassIosMargin() {
+        return iosHeaderSize(IOS_MARGIN);
+    }
+
+    public int getGlassIosGap() {
+        return iosHeaderSize(IOS_GAP);
     }
 
     /** Shows the title's glass pill only for the selection bar (and search) on it. */
@@ -2277,7 +2303,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         textLeft += additionalTextLeft;
 
         if (menu != null && menu.getVisibility() != GONE) {
-            int menuLeft = menu.searchFieldVisible() ? dp(menuOccupyBack ? 0 : AndroidUtilities.isTablet() ? 74 : 66) : (getMeasuredWidth()) - menu.getMeasuredWidth() - glassButtonsIosShift(dp(24)) - glassMenuEndInset;
+            int menuLeft = menu.searchFieldVisible() ? dp(menuOccupyBack ? 0 : AndroidUtilities.isTablet() ? 74 : 66) : (getMeasuredWidth()) - menu.getMeasuredWidth() - glassButtonsIosShift(dp(24)) - glassMenuEndInset
+                - (glassMode && glassIosSizes ? iosHeaderSize(IOS_MARGIN) - dp(6) : 0);
             menu.layout(menuLeft, additionalTop, menuLeft + menu.getMeasuredWidth(), additionalTop + menu.getMeasuredHeight());
         }
 
@@ -3060,7 +3087,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         // With an end view the menu's glass is a circle under it, until search or selection need the menu
         final float endFactor = glassMode && glassEndView != null ? (1f - actionModeFactor) * (1f - searchFieldVisibleAlpha) : 0f;
         // The iOS-like chat header's sizes, back to the bar's own for search and selection
-        final float iosFactor = isIosCenteredPill() ? Math.max(0f, Math.min(1f, endFactor)) : 0f;
+        final float iosFactor = isIosCenteredPill() ? Math.max(0f, Math.min(1f, endFactor))
+            : glassIosSizes ? (1f - actionModeFactor) * (1f - searchFieldVisibleAlpha) : 0f;
         final int si = lerp(s, iosHeaderSize(IOS_BUTTON), iosFactor);
         final int mi = lerp(p, iosHeaderSize(IOS_MARGIN), iosFactor);
         final int menuWidth = lerp(menuWidthB, si, endFactor);

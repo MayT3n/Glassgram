@@ -1371,6 +1371,16 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
     EllipsizeSpanAnimator ellipsizeSpanAnimator = new EllipsizeSpanAnimator(this);
 
     private String logoTitle;
+    private float logoTitleSize = 20;
+
+    /** The collapsed title's size, dp: the iOS-like header's title is smaller (17). */
+    public void setLogoTitleSize(float sizeDp) {
+        if (logoTitleSize != sizeDp) {
+            logoTitleSize = sizeDp;
+            logoTitle = null;
+            updateLogoTitle();
+        }
+    }
 
     /**
      * The chats list title shown while the stories are collapsed into the header: Telegram
@@ -1383,7 +1393,7 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         }
         logoTitle = title;
         telegramLogoView.setContentDescription(title);
-        telegramLogoView.setImageDrawable(new LogoTitleDrawable(title));
+        telegramLogoView.setImageDrawable(new LogoTitleDrawable(title, logoTitleSize));
         telegramLogoView.requestLayout();
     }
 
@@ -1394,10 +1404,10 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
         private final String text;
         private final int width;
 
-        LogoTitleDrawable(String text) {
+        LogoTitleDrawable(String text, float sizeDp) {
             this.text = text;
             paint.setTypeface(AndroidUtilities.bold());
-            paint.setTextSize(dp(20));
+            paint.setTextSize(dp(sizeDp));
             paint.setColor(0xFFFFFFFF);
             width = (int) Math.ceil(paint.measureText(text));
         }

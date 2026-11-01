@@ -3079,8 +3079,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private ActionBarMenuItem glassgramStoryItem;
     private static final int GLASSGRAM_PROXY_ITEM = 40;
     private static final int GLASSGRAM_STORY_ITEM = 41;
-    /** The glass pieces' size and their distance from the bar's edges, as the bar's own (ActionBar). */
-    private static final int GLASSGRAM_BUTTON_DP = 46, GLASSGRAM_BUTTON_MARGIN_DP = 6;
 
     // Edit: chats are chosen with circles at the start of their rows, and the bottom tabs give way
     // to Read (all) and Delete
@@ -3109,13 +3107,18 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         glassgramHeaderButtons.setClipToPadding(false);
         actionBar.addView(glassgramHeaderButtons, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        final int bottom = (ActionBar.getCurrentActionBarHeight() - dp(GLASSGRAM_BUTTON_DP)) / 2;
+        // iOS's sizes, as the bar's own pieces have them here (ActionBar.setGlassIosSizes)
+        actionBar.setGlassIosSizes(true);
+        final int size = actionBar.getGlassIosButtonSize();
+        final int margin = actionBar.getGlassIosMargin();
+        final int bottom = (ActionBar.getCurrentActionBarHeight() - size) / 2;
         glassgramEditButton = new GlassgramHeaderButton(context, iBlur3FactoryLiquidGlass, colors);
         glassgramEditButton.setAnchor(Gravity.LEFT);
         glassgramEditButton.setText(getString(R.string.GlassgramHeaderEdit), false);
         glassgramEditButton.setContentColor(getThemedColor(Theme.key_actionBarDefaultIcon));
         glassgramEditButton.setOnClickListener(v -> setGlassgramEditing(!glassgramEditing));
-        final FrameLayout.LayoutParams editParams = LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, GLASSGRAM_BUTTON_DP, Gravity.LEFT | Gravity.BOTTOM, GLASSGRAM_BUTTON_MARGIN_DP, 0, 0, 0);
+        final FrameLayout.LayoutParams editParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, size, Gravity.LEFT | Gravity.BOTTOM);
+        editParams.leftMargin = margin;
         editParams.bottomMargin = bottom;
         glassgramHeaderButtons.addView(glassgramEditButton, editParams);
 
@@ -3136,13 +3139,16 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             showItemOptions();
             return true;
         });
-        final FrameLayout.LayoutParams composeParams = LayoutHelper.createFrame(GLASSGRAM_BUTTON_DP, GLASSGRAM_BUTTON_DP, Gravity.RIGHT | Gravity.BOTTOM, 0, 0, GLASSGRAM_BUTTON_MARGIN_DP, 0);
+        final FrameLayout.LayoutParams composeParams = new FrameLayout.LayoutParams(size, size, Gravity.RIGHT | Gravity.BOTTOM);
+        composeParams.rightMargin = margin;
         composeParams.bottomMargin = bottom;
         glassgramHeaderButtons.addView(glassgramComposeButton, composeParams);
 
         // The menu's capsule ends a gap before the new message button
-        actionBar.setGlassMenuEndInset(dp(GLASSGRAM_BUTTON_DP + GLASSGRAM_BUTTON_MARGIN_DP));
+        actionBar.setGlassMenuEndInset(size + actionBar.getGlassIosGap());
         actionBar.setGlassPillOnlyForActionMode(true);
+        // iOS's title: 17pt, the same while the stories stand in its place
+        actionBar.setGlassTitleSize(17);
     }
 
     /** Centers the title, or the stories collapsed in its place, between the header's buttons; on every frame of the bar. */
@@ -5737,6 +5743,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             contentView.setClipChildren(false);
         }
         dialogStoriesCell.setMenuItemsOffset(isArchive() ? dp(68) : dpf2(16.66f));
+        if (glassgramIosHeader) {
+            dialogStoriesCell.setLogoTitleSize(17);
+        }
         dialogStoriesCell.allowGlobalUpdates = false;
         dialogStoriesCell.setVisibility(View.GONE);
         animateToHasStories = false;
@@ -14719,7 +14728,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private void checkUi_itemSearchVisibility() {
-        final float factor0 = isSupportSearch() ? 1 : 0;
+        // On the iOS-like header search is the field over the list, as on iOS: no button in the bar
+        final float factor0 = isSupportSearch() && !glassgramIosHeader ? 1 : 0;
         final float factor1 = animatorSearchButtonVisible.getFloatValue();
         final float factor2 = 1f - getRightSlidingProgress();
         final float factor3 = 1f - animatorDoneButtonVisible.getFloatValue();

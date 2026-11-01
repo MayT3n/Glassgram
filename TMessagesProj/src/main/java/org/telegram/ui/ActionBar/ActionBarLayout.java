@@ -1036,34 +1036,148 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     @Keep
-    // glassGram: as on iOS, the glass header of the page coming in comes out of a blur as it slides,
-    // and the one going away goes into it (ActionBar.setGlassgramAppear); back to normal at the end
-    private final ArrayList<ActionBar> glassgramAppearBars = new ArrayList<>();
+    // glassGram: as on iOS, glass headers do not slide with their pages: both stay where they are,
+    // the leaving one dissolving into a blur and the coming one coming out of it, while the pages
+    // slide under them. The pages' own bars are hidden meanwhile (ActionBar.setGlassgramAppear, a
+    // property of their RenderNodes: the pages stay still pictures) and this draws them over the
+    // pages, in place. Only between two glass headers (the chats list, a chat), on Android 12+
+    private ActionBar glassgramHeaderOut, glassgramHeaderIn;
+    private float glassgramHeaderOutAppear, glassgramHeaderInAppear;
+    private Object glassgramHeaderNodes;
 
-    private void glassgramHeaderAppear(BaseFragment fragment, float appear) {
-        if (fragment == null || !org.telegram.messenger.GlassgramConfig.iosChatsHeader) {
-            return;
+    /** The glass bar a page shows: a tabs page shows its tab's. */
+    private static ActionBar glassgramHeaderBar(BaseFragment fragment) {
+        if (fragment instanceof org.telegram.ui.ViewPagerActivity) {
+            final BaseFragment tab = ((org.telegram.ui.ViewPagerActivity) fragment).getCurrentVisibleFragment();
+            if (tab != null) {
+                fragment = tab;
+            }
         }
-        final ActionBar bar = fragment.getActionBar();
-        if (bar == null || !bar.hasLiquidGlassButtons()) {
-            return;
+        final ActionBar bar = fragment != null ? fragment.getActionBar() : null;
+        return bar != null && bar.hasLiquidGlassButtons() ? bar : null;
+    }
+
+    /** Crossfades the headers of the page going away and the one coming; false when they are not both glass. */
+    private boolean glassgramHeaderCrossfade(BaseFragment out, BaseFragment in, float outAppear, float inAppear) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !org.telegram.messenger.GlassgramConfig.iosChatsHeader) {
+            return false;
         }
-        if (!glassgramAppearBars.contains(bar)) {
-            glassgramAppearBars.add(bar);
+        final ActionBar barOut = glassgramHeaderBar(out);
+        final ActionBar barIn = glassgramHeaderBar(in);
+        if (barOut == null || barIn == null || barOut == barIn) {
+            glassgramResetHeaderAppear();
+            return false;
         }
-        bar.setGlassgramAppear(appear);
+        if (glassgramHeaderOut != barOut || glassgramHeaderIn != barIn) {
+            glassgramResetHeaderAppear();
+            glassgramHeaderOut = barOut;
+            glassgramHeaderIn = barIn;
+        }
+        // their own drawing in the pages goes away: this draws them
+        barOut.setGlassgramAppear(0f);
+        barIn.setGlassgramAppear(0f);
+        glassgramHeaderOutAppear = outAppear;
+        glassgramHeaderInAppear = inAppear;
+        invalidate();
+        return true;
     }
 
     private void glassgramResetHeaderAppear() {
-        for (int i = 0; i < glassgramAppearBars.size(); i++) {
-            glassgramAppearBars.get(i).setGlassgramAppear(1f);
+        if (glassgramHeaderOut != null) {
+            glassgramHeaderOut.setGlassgramAppear(1f);
         }
-        glassgramAppearBars.clear();
+        if (glassgramHeaderIn != null) {
+            glassgramHeaderIn.setGlassgramAppear(1f);
+        }
+        if (glassgramHeaderOut != null || glassgramHeaderIn != null) {
+            glassgramHeaderOut = glassgramHeaderIn = null;
+            invalidate();
+        }
     }
 
-    /** The slide's progress to how far a header shows: clear well before the page is all in. */
-    private static float glassgramAppearOf(float progress) {
-        return Math.max(0f, Math.min(1f, progress * 1.4f - 0.1f));
+    private static float glassgramClamp(float value) {
+        return Math.max(0f, Math.min(1f, value));
+    }
+
+    private void glassgramDrawHeaders(Canvas canvas) {
+        if (glassgramHeaderOut == null || glassgramHeaderIn == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !canvas.isHardwareAccelerated()) {
+            return;
+        }
+        if (glassgramHeaderNodes == null) {
+            glassgramHeaderNodes = new GlassgramHeaderNodes();
+        }
+        final GlassgramHeaderNodes nodes = (GlassgramHeaderNodes) glassgramHeaderNodes;
+        nodes.draw(canvas, this, glassgramHeaderOut, nodes.out, glassgramHeaderOutAppear);
+        nodes.draw(canvas, this, glassgramHeaderIn, nodes.in, glassgramHeaderInAppear);
+    }
+
+    @androidx.annotation.RequiresApi(api = Build.VERSION_CODES.S)
+    private static final class GlassgramHeaderNodes {
+        final android.graphics.RenderNode out = new android.graphics.RenderNode("glassgramHeaderOut");
+        final android.graphics.RenderNode in = new android.graphics.RenderNode("glassgramHeaderIn");
+        private final float[] position = new float[2];
+
+        void draw(Canvas canvas, View layout, ActionBar bar, android.graphics.RenderNode node, float appear) {
+            if (appear <= 0f || bar.getWidth() <= 0 || bar.getHeight() <= 0 || !position(layout, bar)) {
+                return;
+            }
+            node.setPosition(0, 0, bar.getWidth(), bar.getHeight());
+            node.setClipToBounds(false);
+            final android.graphics.RecordingCanvas recording = node.beginRecording(bar.getWidth(), bar.getHeight());
+            try {
+                bar.draw(recording);
+            } finally {
+                node.endRecording();
+            }
+            if (appear >= 1f) {
+                node.setRenderEffect(null);
+            } else {
+                final float radius = AndroidUtilities.dp(12) * (1f - appear);
+                final android.graphics.ColorMatrix fade = new android.graphics.ColorMatrix();
+                fade.setScale(1f, 1f, 1f, appear);
+                final android.graphics.RenderEffect fadeEffect = android.graphics.RenderEffect.createColorFilterEffect(new android.graphics.ColorMatrixColorFilter(fade));
+                node.setRenderEffect(radius >= 0.5f
+                    ? android.graphics.RenderEffect.createChainEffect(android.graphics.RenderEffect.createBlurEffect(radius, radius, android.graphics.Shader.TileMode.DECAL), fadeEffect)
+                    : fadeEffect);
+            }
+            canvas.save();
+            canvas.translate(position[0], position[1]);
+            canvas.drawRenderNode(node);
+            canvas.restore();
+        }
+
+        /** Where the bar is in the layout as if its page had not moved: the header stays put. */
+        private boolean position(View layout, View bar) {
+            float x = 0, y = 0;
+            View view = bar;
+            while (true) {
+                final android.view.ViewParent parent = view.getParent();
+                if (!(parent instanceof View)) {
+                    return false;
+                }
+                if (parent == layout) {
+                    // view is the page: its slide is left out
+                    x += view.getLeft();
+                    y += view.getTop() + view.getTranslationY();
+                    break;
+                }
+                x += view.getLeft() + view.getTranslationX() - ((View) parent).getScrollX();
+                y += view.getTop() + view.getTranslationY() - ((View) parent).getScrollY();
+                view = (View) parent;
+            }
+            position[0] = x;
+            position[1] = y;
+            return true;
+        }
+    }
+
+    /** The slide's time to how far each header shows: the leaving one goes first, the coming one follows. */
+    private static float glassgramOutAppear(float time) {
+        return 1f - glassgramClamp(time / 0.35f);
+    }
+
+    private static float glassgramInAppear(float time) {
+        return glassgramClamp((time - 0.2f) / 0.4f);
     }
 
     public void setInnerTranslationX(float value) {
@@ -1071,13 +1185,13 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         invalidate();
         glassgramUpdateBackParallax(value);
         if (fragmentsStack.size() >= 2 && containerView.getMeasuredWidth() > 0) {
-            if (value <= 0f) {
+            final float slide = Math.min(1f, value / containerView.getMeasuredWidth());
+            if (value <= 0f || slide >= 1f) {
                 glassgramResetHeaderAppear();
             } else {
-                // The swipe back: the page underneath comes in, the swiped one goes
-                final float slide = Math.min(1f, value / containerView.getMeasuredWidth());
-                glassgramHeaderAppear(fragmentsStack.get(fragmentsStack.size() - 2), glassgramAppearOf(slide));
-                glassgramHeaderAppear(fragmentsStack.get(fragmentsStack.size() - 1), glassgramAppearOf(1f - slide));
+                // The swipe back: the swiped page's header goes, the one underneath comes
+                glassgramHeaderCrossfade(fragmentsStack.get(fragmentsStack.size() - 1), fragmentsStack.get(fragmentsStack.size() - 2),
+                    glassgramOutAppear(slide), glassgramInAppear(slide));
             }
         }
 
@@ -1195,6 +1309,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             canvas.clipPath(clipPath);
         }
         super.dispatchDraw(canvas);
+        glassgramDrawHeaders(canvas);
         if (isLayersLayout) {
             canvas.restore();
         }
@@ -2066,8 +2181,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     interpolated = decelerateInterpolator.getInterpolation(animationProgress);
                 }
                 if (iosSlide) {
-                    glassgramHeaderAppear(newFragment, glassgramAppearOf(interpolated));
-                    glassgramHeaderAppear(oldFragment, glassgramAppearOf(1f - interpolated));
+                    glassgramHeaderCrossfade(oldFragment, newFragment, glassgramOutAppear(animationProgress), glassgramInAppear(animationProgress));
                 }
                 if (iosSlide) {
                     // glassGram: opening slides the new page (containerView) in over the old one;

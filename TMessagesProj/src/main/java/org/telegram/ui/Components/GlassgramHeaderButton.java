@@ -66,8 +66,8 @@ public class GlassgramHeaderButton extends FrameLayout {
         if (textView == null) {
             textView = new AnimatedTextView(getContext(), true, true, false);
             textView.setAnimationProperties(.6f, 0, 320, CubicBezierInterpolator.EASE_OUT_QUINT);
+            // iOS's bar buttons: 17pt, regular
             textView.setTextSize(dp(16));
-            textView.setTypeface(AndroidUtilities.bold());
             textView.setGravity(Gravity.CENTER);
             addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         }
