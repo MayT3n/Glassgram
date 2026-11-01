@@ -43,6 +43,47 @@ public class GlassgramHeaderButton extends FrameLayout {
     private CharSequence text;
     private int anchor = Gravity.CENTER_HORIZONTAL;
 
+    /** A glass piece beside this button that the button flows into when it swells towards it. */
+    public interface MergeNeighbor {
+        /** The neighbor's glass in this button's coordinates as drawn now; false when it shows none. */
+        boolean getGlass(android.graphics.RectF out);
+    }
+
+    private MergeNeighbor mergeNeighbor;
+    private GlassMerge merge;
+    private BlurredBackgroundDrawable mergeGlass;
+    private float mergeRestGap = -1;
+    private final android.graphics.RectF mergeMine = new android.graphics.RectF();
+    private final android.graphics.RectF mergeOther = new android.graphics.RectF();
+
+    /** As on iOS, pressed, the button flows into the glass beside it (GlassMerge); null for none. */
+    public void setMergeNeighbor(MergeNeighbor neighbor, BlurredBackgroundDrawableViewFactory factory, BlurredBackgroundColorProvider colors) {
+        mergeNeighbor = neighbor;
+        if (neighbor != null && merge == null) {
+            merge = new GlassMerge();
+            mergeGlass = factory.create(this, colors);
+        }
+    }
+
+    private void drawMerge(Canvas canvas, float left, float right, float h) {
+        if (mergeNeighbor == null || !mergeNeighbor.getGlass(mergeOther)) {
+            return;
+        }
+        press.mapRect(left, 0, right, h, mergeMine);
+        final boolean neighborFirst = mergeOther.centerX() < mergeMine.centerX();
+        final float gap = neighborFirst ? mergeMine.left - mergeOther.right : mergeOther.left - mergeMine.right;
+        if (!press.isActive()) {
+            // The gap at rest: the bridge grows as it shrinks from it
+            mergeRestGap = gap;
+            return;
+        }
+        if (neighborFirst) {
+            merge.draw(canvas, mergeOther, mergeMine, mergeRestGap, mergeGlass, 0, tint);
+        } else {
+            merge.draw(canvas, mergeMine, mergeOther, mergeRestGap, mergeGlass, tint, 0);
+        }
+    }
+
     public GlassgramHeaderButton(Context context, BlurredBackgroundDrawableViewFactory factory, BlurredBackgroundColorProvider colors) {
         super(context);
         setWillNotDraw(false);
@@ -164,6 +205,7 @@ public class GlassgramHeaderButton extends FrameLayout {
         }
         final float right = left + w;
         final float radius = h / 2f;
+        drawMerge(canvas, left, right, h);
         final int p = dp(GLASS_PADDING_DP);
         glass.setBounds(Math.round(left) - p, -p, Math.round(right) + p, Math.round(h) + p);
         glass.setRadius(radius);

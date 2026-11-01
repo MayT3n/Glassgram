@@ -345,6 +345,66 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
     }
 
+    // glassGram: as on iOS, the bar's glass pieces flow into each other when one is pressed and
+    // swells or is pulled towards another (GlassMerge): the back button, the pill, the menu
+    private BlurredBackgroundDrawableViewFactory glassFactory;
+    private BlurredBackgroundColorProvider glassColorProvider;
+    private org.telegram.ui.Components.GlassMerge glassMerge;
+    private final BlurredBackgroundDrawable[] glassNeckDrawables = new BlurredBackgroundDrawable[3];
+    private final float[] glassNeckRestGap = {-1, -1, -1};
+    private final RectF glassNeckA = new RectF(), glassNeckB = new RectF();
+    private static final int[][] GLASS_NECK_PAIRS = {{ActionBar.GLASS_BACK, ActionBar.GLASS_PILL}, {ActionBar.GLASS_PILL, ActionBar.GLASS_MENU}, {ActionBar.GLASS_BACK, ActionBar.GLASS_MENU}};
+
+    /** The piece's glass as drawn now: moved by its press. */
+    private boolean glassShape(int surface, RectF out) {
+        if (!glassShown[surface]) {
+            return false;
+        }
+        final RectF r = glassRect[surface];
+        final LiquidPressEffect effect = glassPress[surface];
+        if (effect != null && effect.isActive()) {
+            effect.mapRect(r.left, r.top, r.right, r.bottom, out);
+        } else {
+            out.set(r);
+        }
+        return !out.isEmpty();
+    }
+
+    /** The menu's glass as drawn now (moved by its press), in this bar's coordinates; false without it. */
+    public boolean getGlassMenuShape(RectF out) {
+        return glassMode && glassShape(GLASS_MENU, out);
+    }
+
+    private void drawGlassNecks(Canvas canvas) {
+        if (glassFactory == null || glassAlpha <= 0f) {
+            return;
+        }
+        for (int i = 0; i < GLASS_NECK_PAIRS.length; i++) {
+            final int a = GLASS_NECK_PAIRS[i][0], b = GLASS_NECK_PAIRS[i][1];
+            // the back button and the menu join only with no pill between them
+            if (i == 2 && glassShown[GLASS_PILL]) {
+                continue;
+            }
+            if (!glassShape(a, glassNeckA) || !glassShape(b, glassNeckB)) {
+                continue;
+            }
+            final boolean aFirst = glassNeckA.centerX() <= glassNeckB.centerX();
+            final RectF left = aFirst ? glassNeckA : glassNeckB, right = aFirst ? glassNeckB : glassNeckA;
+            final LiquidPressEffect pa = glassPress[a], pb = glassPress[b];
+            if ((pa == null || !pa.isActive()) && (pb == null || !pb.isActive())) {
+                glassNeckRestGap[i] = right.left - left.right;
+                continue;
+            }
+            if (glassMerge == null) {
+                glassMerge = new org.telegram.ui.Components.GlassMerge();
+            }
+            if (glassNeckDrawables[i] == null) {
+                glassNeckDrawables[i] = glassFactory.create(this).setColorProvider(glassColorProvider);
+            }
+            glassMerge.draw(canvas, left, right, glassNeckRestGap[i], glassNeckDrawables[i], 0, 0);
+        }
+    }
+
     // glassGram: the chats list's iOS-like header. The menu's capsule moves in from the end for a
     // button of the screen's own there (new message), and the pill shows only under the selection
     // bar: the title stands in the middle of the bar on its own
@@ -540,6 +600,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         setClipChildren(false);
         glassMode = true;
         glassModeIsForum = isForum;
+        glassFactory = factory;
+        glassColorProvider = colorProvider;
 
         glassDrawable = factory.create(this)
             .setColorProvider(colorProvider)
@@ -3219,6 +3281,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                     glassEndView.setScaleY(scale);
                 }
             }
+        }
+
+        if (glassMode) {
+            drawGlassNecks(canvas);
         }
 
         if (blurredBackground && actionBarColor != Color.TRANSPARENT) {

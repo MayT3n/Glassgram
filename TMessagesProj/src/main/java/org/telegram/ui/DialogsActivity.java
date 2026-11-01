@@ -3153,6 +3153,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         composeParams.rightMargin = margin;
         composeParams.bottomMargin = bottom;
         glassgramHeaderButtons.addView(glassgramComposeButton, composeParams);
+        // Pressed, it flows into the menu's capsule beside it, as on iOS
+        glassgramComposeButton.setMergeNeighbor(out -> {
+            if (!actionBar.getGlassMenuShape(out)) {
+                return false;
+            }
+            out.offset(-(glassgramHeaderButtons.getX() + glassgramComposeButton.getX()), -(glassgramHeaderButtons.getY() + glassgramComposeButton.getY()));
+            return true;
+        }, iBlur3FactoryLiquidGlass, colors);
 
         // The menu's capsule ends a gap before the new message button
         actionBar.setGlassMenuEndInset(size + actionBar.getGlassIosGap());

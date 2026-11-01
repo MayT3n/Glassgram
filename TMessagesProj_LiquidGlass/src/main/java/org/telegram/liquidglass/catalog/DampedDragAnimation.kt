@@ -139,9 +139,13 @@ class DampedDragAnimation(
             mutatorMutex.mutate {
                 press()
                 val targetValue = value.coerceIn(valueRange)
-                launch { valueAnimation.animateTo(targetValue, valueAnimationSpec) }
-                if (velocity != 0f) {
-                    launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
+                // glassGram: on its way it stretches with its speed as when dragged, as on iOS (a
+                // toggle flipped by a tap on its row, a tab chosen, a tap on a slider's track)
+                launch {
+                    valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() }
+                    // after the speeds set on its last frames, back to rest
+                    awaitFrame()
+                    velocityAnimation.animateTo(0f, velocityAnimationSpec)
                 }
                 release()
             }
