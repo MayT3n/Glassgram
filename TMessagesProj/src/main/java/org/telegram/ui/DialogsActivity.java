@@ -890,7 +890,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
         private org.telegram.messenger.utils.GradientProtectionDrawable glassHeaderFade;
 
-        /** Under the status bar the list fades out instead of being cut. */
+        /**
+         * Under the status bar the list fades out instead of being cut. On the iOS-like header,
+         * with no glass pill under the title, it fades out under the whole header, as on iOS:
+         * the title and the buttons stay readable over the chats scrolling under them.
+         */
         private void drawGlassHeaderFade(Canvas canvas) {
             if (glassHeaderFade == null) {
                 glassHeaderFade = new org.telegram.messenger.utils.GradientProtectionDrawable(androidx.core.view.WindowInsetsCompat.Side.TOP);
@@ -898,8 +902,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             final int top = (int) -getY();
             final int status = actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0;
             glassHeaderFade.setColor(getThemedColor(Theme.key_windowBackgroundWhite));
-            glassHeaderFade.setInsets(0, top + status, 0, 0);
-            glassHeaderFade.setBounds(0, 0, getMeasuredWidth(), top + status + dp(20));
+            if (glassgramIosHeader) {
+                // Solid to a little below the status bar, then fading out by the header's end
+                glassHeaderFade.setInsets(0, top + status + dp(8), 0, 0);
+                glassHeaderFade.setBounds(0, 0, getMeasuredWidth(), top + status + ActionBar.getCurrentActionBarHeight() + dp(16));
+            } else {
+                glassHeaderFade.setInsets(0, top + status, 0, 0);
+                glassHeaderFade.setBounds(0, 0, getMeasuredWidth(), top + status + dp(20));
+            }
             glassHeaderFade.draw(canvas);
         }
 
