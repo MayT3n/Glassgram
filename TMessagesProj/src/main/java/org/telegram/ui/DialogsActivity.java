@@ -3167,6 +3167,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         actionBar.setGlassPillOnlyForActionMode(true);
         // iOS's title: 17pt, the same while the stories stand in its place
         actionBar.setGlassTitleSize(17);
+        // A status in its place (connecting) alone, as on iOS: the proxy is the shield's
+        actionBar.setOverlaySubtitleHidden(true);
     }
 
     /** Centers the title, or the stories collapsed in its place, between the header's buttons; on every frame of the bar. */
@@ -3176,6 +3178,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         }
         final float minLeft = glassgramEditButton.getX() + glassgramEditButton.getWidth() + dp(8);
         final float maxRight = actionBar.getGlassMenuLeft() - dp(8);
+        // A long title or status (Connecting to proxy...) fits between the buttons, cut short
+        if (maxRight > minLeft) {
+            actionBar.setGlassTitleMaxWidth((int) (maxRight - minLeft));
+        }
         final FrameLayout titles = actionBar.getTitlesContainer();
         final SimpleTextView title = actionBar.getTitleTextView();
         if (titles != null && title != null && title.getWidth() > 0) {

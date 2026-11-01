@@ -449,6 +449,24 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         return iosHeaderSize(IOS_GAP);
     }
 
+    // The iOS-like header's title fits between the buttons beside it, and a status on it (connecting)
+    // has no second line under it: the proxy is the shield's on that header
+    private int glassTitleMaxWidth;
+    private boolean overlaySubtitleHidden;
+
+    /** The widest the title may be, 0 for the bar's own measure. */
+    public void setGlassTitleMaxWidth(int width) {
+        if (glassTitleMaxWidth != width) {
+            glassTitleMaxWidth = width;
+            requestLayout();
+        }
+    }
+
+    /** No line under a status shown in place of the title (Connecting to proxy: Proxy settings). */
+    public void setOverlaySubtitleHidden(boolean hidden) {
+        overlaySubtitleHidden = hidden;
+    }
+
     /** Shows the title's glass pill only for the selection bar (and search) on it. */
     public void setGlassPillOnlyForActionMode(boolean value) {
         if (glassPillOnlyForActionMode != value) {
@@ -2274,6 +2292,9 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 // A closing search field keeps filling the menu during its fade-out; don't squeeze the title for it.
                 int titleMenuWidth = menu != null ? menu.getMeasuredWidth() - (isSearchFieldVisible ? 0 : menu.getClosingSearchFieldWidth()) : 0;
                 int availableWidth = width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
+                if (glassTitleMaxWidth > 0) {
+                    availableWidth = Math.min(availableWidth, glassTitleMaxWidth);
+                }
                 availableWidth = Math.max(availableWidth, 0);
 
                 if (((fromBottom && i == 0) || (!fromBottom && i == 1)) && overlayTitleAnimation && titleAnimationRunning) {
@@ -2505,7 +2526,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
         if (additionalSubTitleOverlayContainer != null) {
             final CharSequence textToSet;
-            if (titleId == R.string.ConnectingToProxyWithDots) {
+            if (titleId == R.string.ConnectingToProxyWithDots && !overlaySubtitleHidden) {
                 textToSet = AndroidUtilities.replaceArrows(getString(R.string.TitleSetupProxy), true, dp(8f / 3f), dp(2));
             } else {
                 textToSet = null;

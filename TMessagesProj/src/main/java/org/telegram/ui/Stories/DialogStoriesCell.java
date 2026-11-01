@@ -1074,7 +1074,8 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        titleView.setTextSize(dp(!AndroidUtilities.isTablet() && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 18 : 20));
+        // a status shown in the title's place (connecting) as large as the title
+        titleView.setTextSize(dp(logoTitleSize != 20 ? logoTitleSize : !AndroidUtilities.isTablet() && getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE ? 18 : 20));
         currentCellWidth = dp(ITEM_WIDTH);
         AndroidUtilities.rectTmp.set(0, 0, getMeasuredWidth(), getMeasuredHeight());
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(dp(85 + FAKE_TOP_PADDING), MeasureSpec.EXACTLY));
@@ -1448,7 +1449,8 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
 
     public void setTitleOverlayText(String titleOverlayText, int textId) {
         final CharSequence subtitleToSet;
-        if (textId == R.string.ConnectingToProxyWithDots) {
+        // The iOS-like header shows a status alone, as iOS does: the proxy is the shield's there
+        if (textId == R.string.ConnectingToProxyWithDots && !centerCollapsedRow) {
             subtitleToSet = AndroidUtilities.replaceArrows(getString(R.string.TitleSetupProxy), true, dp(8f / 3f), dp(2));
         } else {
             subtitleToSet = null;

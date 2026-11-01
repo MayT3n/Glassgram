@@ -7,6 +7,8 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 
+import org.telegram.messenger.AndroidUtilities;
+
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 
 /**
@@ -18,6 +20,8 @@ import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 public final class GlassMerge {
 
     private static final float HANDLE_SIZE = 2.4f;
+    /** How near the pieces have to come for a bridge to start: iOS joins them only nearly touching. */
+    private static final float JOIN_GAP_DP = 6;
 
     private final Path path = new Path();
     private final Path pieces = new Path();
@@ -37,13 +41,17 @@ public final class GlassMerge {
             return false;
         }
         final float gap = right.left - left.right;
-        // Nothing at rest; fully joined once half the gap is gone
-        final float strength = Math.max(0f, Math.min(1f, (restGap - gap) / (restGap * 0.5f)));
+        // Nothing at rest, nor until they come nearly together; fully joined as they touch
+        final float joinGap = Math.min(AndroidUtilities.dpf2(JOIN_GAP_DP), restGap - AndroidUtilities.dpf2(1));
+        if (joinGap <= 0f) {
+            return false;
+        }
+        final float strength = Math.max(0f, Math.min(1f, (joinGap - gap) / joinGap));
         if (strength <= 0f) {
             return false;
         }
         final float r1 = left.height() / 2f, r2 = right.height() / 2f;
-        if (!metaball(path, left.right - r1, left.centerY(), r1, right.left + r2, right.centerY(), r2, 0.55f * strength)) {
+        if (!metaball(path, left.right - r1, left.centerY(), r1, right.left + r2, right.centerY(), r2, 0.45f * strength)) {
             return false;
         }
         // Only what is between the pieces: their own glass, rims and all, stays as drawn
@@ -64,6 +72,12 @@ public final class GlassMerge {
             glass.draw(canvas);
         }
         if (tintLeft != 0 || tintRight != 0) {
+            // A clear piece's end is the other's tint, faded out: not through black
+            if (tintLeft == 0) {
+                tintLeft = tintRight & 0x00FFFFFF;
+            } else if (tintRight == 0) {
+                tintRight = tintLeft & 0x00FFFFFF;
+            }
             final float x1 = left.right - r1, x2 = right.left + r2;
             if (gradientFrom != tintLeft || gradientTo != tintRight || gradientX1 != x1 || gradientX2 != x2) {
                 gradientFrom = tintLeft;
