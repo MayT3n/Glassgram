@@ -1053,6 +1053,10 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 fragment = tab;
             }
         }
+        // The chats list with topics opened beside it: their header slides with the page
+        if (fragment instanceof org.telegram.ui.DialogsActivity && !((org.telegram.ui.DialogsActivity) fragment).glassgramHeaderInPlace()) {
+            return null;
+        }
         final ActionBar bar = fragment != null ? fragment.getActionBar() : null;
         return bar != null && bar.hasLiquidGlassButtons() ? bar : null;
     }

@@ -3100,6 +3100,14 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     private GlassgramHeaderButton glassgramReadButton;
     private GlassgramHeaderButton glassgramDeleteButton;
 
+    /**
+     * Whether the header may stay in place while a chat slides in (ActionBarLayout): not with
+     * topics opened beside the list, whose header lies in the page, not in this bar.
+     */
+    public boolean glassgramHeaderInPlace() {
+        return rightSlidingDialogContainer == null || !rightSlidingDialogContainer.hasFragment();
+    }
+
     /** How far Edit is shown, 0 to 1: the rows draw their circles by it (DialogCell). */
     public float getGlassgramEditProgress() {
         return glassgramEditProgress;
@@ -14687,7 +14695,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             FragmentFloatingButton.setAnimatedVisibility(glassgramStoryItem, storiesEnabled ? factor : 0);
         }
         if (glassgramHeaderButtons != null) {
-            final float buttons = factor2 * factor3;
+            // Gone at the start of the topics opening beside the list, not crossing their header
+            final float buttons = Math.max(0f, 1f - getRightSlidingProgress() * 4f) * factor3;
             glassgramHeaderButtons.setVisibility(buttons > 0 ? View.VISIBLE : View.INVISIBLE);
             if (glassgramEditButton != null) {
                 glassgramEditButton.setAlpha(buttons);

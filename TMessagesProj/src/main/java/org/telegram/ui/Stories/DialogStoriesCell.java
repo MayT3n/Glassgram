@@ -995,8 +995,9 @@ public class DialogStoriesCell extends FrameLayout implements NotificationCenter
             subtitleOverlayContainer.setTranslationX(titleView.getTranslationX());
             subtitleOverlayContainer.setTranslationY(bottomY + dp(15 + FAKE_TOP_PADDING + 4.333f + 8));
 
-            if (centerCollapsedRow && collapsedProgress >= 1f) {
-                // The row's width, for the next frames to center it: the same wherever it starts
+            if (centerCollapsedRow) {
+                // The row's width, for the next frames to center it: the same wherever it starts.
+                // Measured as soon as the row shows: half collapsed, it stood at the bar's start
                 final float width = getHeaderContentRight() - getX() - listViewMini.getX();
                 if (width > 0 && Math.abs(width - centerRowWidth) > 0.5f) {
                     centerRowWidth = width;

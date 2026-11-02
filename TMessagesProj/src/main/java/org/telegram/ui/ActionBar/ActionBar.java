@@ -3172,7 +3172,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         final float endFactor = glassMode && glassEndView != null ? (1f - actionModeFactor) * (1f - searchFieldVisibleAlpha) : 0f;
         // The iOS-like chat header's sizes, back to the bar's own for search and selection
         final float iosFactor = isIosCenteredPill() ? Math.max(0f, Math.min(1f, endFactor))
-            : glassIosSizes ? (1f - actionModeFactor) * (1f - searchFieldVisibleAlpha) : 0f;
+            // and back for the topics opened beside the chats list: their back button sits where the bar's own would
+            : glassIosSizes ? (1f - actionModeFactor) * (1f - searchFieldVisibleAlpha) * (1f - glassBackOverlay) : 0f;
         final int si = lerp(s, iosHeaderSize(IOS_BUTTON), iosFactor);
         final int mi = lerp(p, iosHeaderSize(IOS_MARGIN), iosFactor);
         final int menuWidth = lerp(menuWidthB, si, endFactor);
