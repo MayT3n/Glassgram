@@ -77,10 +77,11 @@ public class GlassgramHeaderButton extends FrameLayout {
             mergeRestGap = gap;
             return;
         }
+        // The button is drawn over the bridge after it: only the neighbor, drawn before, is cut out
         if (neighborFirst) {
-            merge.draw(canvas, mergeOther, mergeMine, mergeRestGap, mergeGlass, 0, tint);
+            merge.draw(canvas, mergeOther, mergeMine, mergeRestGap, mergeGlass, 0, tint, true, false);
         } else {
-            merge.draw(canvas, mergeMine, mergeOther, mergeRestGap, mergeGlass, tint, 0);
+            merge.draw(canvas, mergeMine, mergeOther, mergeRestGap, mergeGlass, tint, 0, false, true);
         }
     }
 

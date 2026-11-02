@@ -2292,7 +2292,8 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
                 // A closing search field keeps filling the menu during its fade-out; don't squeeze the title for it.
                 int titleMenuWidth = menu != null ? menu.getMeasuredWidth() - (isSearchFieldVisible ? 0 : menu.getClosingSearchFieldWidth()) : 0;
                 int availableWidth = width - titleMenuWidth - dp(16) - textLeft - titleRightMargin;
-                if (glassTitleMaxWidth > 0) {
+                // Only a status in the title's place: the title itself measured short was cut ("glassGra...")
+                if (glassTitleMaxWidth > 0 && titleOverlayShown) {
                     availableWidth = Math.min(availableWidth, glassTitleMaxWidth);
                 }
                 availableWidth = Math.max(availableWidth, 0);
