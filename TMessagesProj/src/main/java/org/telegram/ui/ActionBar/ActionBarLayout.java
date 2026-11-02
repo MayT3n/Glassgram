@@ -1111,27 +1111,55 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             glassgramHeaderNodes = new GlassgramHeaderNodes();
         }
         final GlassgramHeaderNodes nodes = (GlassgramHeaderNodes) glassgramHeaderNodes;
-        nodes.draw(canvas, this, glassgramHeaderOut, nodes.out, glassgramHeaderOutAppear);
-        nodes.draw(canvas, this, glassgramHeaderIn, nodes.in, glassgramHeaderInAppear);
+        nodes.draw(canvas, this, glassgramHeaderOut, nodes.out, glassgramHeaderOutAppear, true);
+        nodes.draw(canvas, this, glassgramHeaderIn, nodes.in, glassgramHeaderInAppear, false);
     }
 
     @androidx.annotation.RequiresApi(api = Build.VERSION_CODES.S)
     private static final class GlassgramHeaderNodes {
         final android.graphics.RenderNode out = new android.graphics.RenderNode("glassgramHeaderOut");
         final android.graphics.RenderNode in = new android.graphics.RenderNode("glassgramHeaderIn");
+        final android.graphics.RenderNode title = new android.graphics.RenderNode("glassgramHeaderTitle");
         private final float[] position = new float[2];
 
-        void draw(Canvas canvas, View layout, ActionBar bar, android.graphics.RenderNode node, float appear) {
+        /**
+         * Draws the bar in place, blurred and faded by appear. With sharpTitle (the leaving bar),
+         * as on iOS, only its buttons dissolve: the title stays sharp, fading as it moves a little
+         * towards the start.
+         */
+        void draw(Canvas canvas, View layout, ActionBar bar, android.graphics.RenderNode node, float appear, boolean sharpTitle) {
             if (appear <= 0f || bar.getWidth() <= 0 || bar.getHeight() <= 0 || !position(layout, bar)) {
                 return;
             }
+            final View titles = sharpTitle ? bar.getTitlesContainer() : null;
+            final boolean separateTitle = titles != null && titles.getVisibility() == View.VISIBLE && titles.getAlpha() > 0f;
             node.setPosition(0, 0, bar.getWidth(), bar.getHeight());
             node.setClipToBounds(false);
             final android.graphics.RecordingCanvas recording = node.beginRecording(bar.getWidth(), bar.getHeight());
             try {
+                if (separateTitle) {
+                    titles.setVisibility(View.INVISIBLE);
+                }
                 bar.draw(recording);
             } finally {
+                if (separateTitle) {
+                    titles.setVisibility(View.VISIBLE);
+                }
                 node.endRecording();
+            }
+            if (separateTitle) {
+                title.setPosition(0, 0, bar.getWidth(), bar.getHeight());
+                title.setClipToBounds(false);
+                final android.graphics.RecordingCanvas titleCanvas = title.beginRecording(bar.getWidth(), bar.getHeight());
+                try {
+                    titleCanvas.translate(titles.getLeft() + titles.getTranslationX(), titles.getTop() + titles.getTranslationY());
+                    titleCanvas.scale(titles.getScaleX(), titles.getScaleY(), titles.getPivotX(), titles.getPivotY());
+                    titles.draw(titleCanvas);
+                } finally {
+                    title.endRecording();
+                }
+                title.setAlpha(appear * titles.getAlpha());
+                title.setTranslationX(-AndroidUtilities.dp(24) * (1f - appear));
             }
             if (appear >= 1f) {
                 node.setRenderEffect(null);
@@ -1147,6 +1175,9 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             canvas.save();
             canvas.translate(position[0], position[1]);
             canvas.drawRenderNode(node);
+            if (separateTitle) {
+                canvas.drawRenderNode(title);
+            }
             canvas.restore();
         }
 
@@ -1175,13 +1206,18 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         }
     }
 
-    /** The slide's time to how far each header shows: the leaving one goes first, the coming one follows. */
+    /**
+     * The slide's time to how far each header shows, as iOS's frames have it: the leaving one is
+     * gone within the first fifth of the slide, the coming one starts almost at once and is clear
+     * by a third, so they cross and the bar is never empty (it was for a few frames, the coming
+     * header starting late and slowly).
+     */
     private static float glassgramOutAppear(float time) {
-        return 1f - glassgramClamp(time / 0.35f);
+        return 1f - glassgramClamp(time / 0.2f);
     }
 
     private static float glassgramInAppear(float time) {
-        return glassgramClamp((time - 0.2f) / 0.4f);
+        return glassgramClamp((time - 0.05f) / 0.25f);
     }
 
     public void setInnerTranslationX(float value) {
