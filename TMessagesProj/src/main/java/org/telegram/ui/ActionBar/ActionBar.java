@@ -330,6 +330,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         glassgramAppear = appear;
         if (appear >= 1f) {
             setRenderEffect(null);
+            invalidateGlassgramExtraViews();
             return;
         }
         // Hidden (ActionBarLayout draws it in place of the page): no blur to work out
@@ -422,6 +423,24 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
 
     public void setGlassgramExtraPieces(GlassgramExtraPieces pieces) {
         glassgramExtraPieces = pieces;
+    }
+
+    // The screen's own glass buttons on the bar: drawn again with it when it comes back from a slide,
+    // or their glass kept the picture taken before it, a late and misplaced blur
+    private View[] glassgramExtraViews;
+
+    public void setGlassgramExtraViews(View... views) {
+        glassgramExtraViews = views;
+    }
+
+    public void invalidateGlassgramExtraViews() {
+        if (glassgramExtraViews != null) {
+            for (View view : glassgramExtraViews) {
+                if (view != null) {
+                    view.invalidate();
+                }
+            }
+        }
     }
 
     /** The glass pieces as last drawn, left to right: their rects in this bar's coordinates and tints; their count. */

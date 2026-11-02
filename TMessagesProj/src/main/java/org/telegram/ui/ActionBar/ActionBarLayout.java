@@ -1172,7 +1172,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 piecesIn[j].offset(ix, iy);
             }
             pair(nOut, nIn);
-            final float m = 1f - (1f - morph) * (1f - morph) * (1f - morph);
+            final float m = morph;
             // the coming glass over the leaving one in the first half, the leaving one gone in the second
             final float outGlass = 1f - Math.max(0f, Math.min(1f, (m - 0.5f) * 2f));
             final float inGlass = Math.max(0f, Math.min(1f, m * 2f));
@@ -1350,17 +1350,24 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
      * by a third, so they cross and the bar is never empty (it was for a few frames, the coming
      * header starting late and slowly).
      */
+    // Over about half the slide (some 200ms): within its first quarter the morph was over in two
+    // or three frames, too quick and jerky to be seen
     private static float glassgramOutAppear(float time) {
-        return 1f - glassgramClamp(time / 0.16f);
+        return 1f - glassgramSmooth(time / 0.3f);
     }
 
     private static float glassgramInAppear(float time) {
-        return glassgramClamp((time - 0.08f) / 0.24f);
+        return glassgramSmooth((time - 0.18f) / 0.37f);
     }
 
-    /** How far the glass has flowed into the coming header's shapes: within the first quarter, as on iOS. */
+    /** How far the glass has flowed into the coming header's shapes, easing in and out. */
     private static float glassgramMorph(float time) {
-        return glassgramClamp((time - 0.02f) / 0.22f);
+        return glassgramSmooth(time / 0.5f);
+    }
+
+    private static float glassgramSmooth(float value) {
+        final float t = glassgramClamp(value);
+        return t * t * (3f - 2f * t);
     }
 
     public void setInnerTranslationX(float value) {
@@ -1374,7 +1381,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             } else {
                 // The swipe back: the swiped page's header goes, the one underneath comes
                 glassgramHeaderCrossfade(fragmentsStack.get(fragmentsStack.size() - 1), fragmentsStack.get(fragmentsStack.size() - 2),
-                    1f - glassgramClamp(slide / 0.3f), glassgramClamp((slide - 0.15f) / 0.35f), glassgramClamp(slide / 0.45f));
+                    1f - glassgramSmooth(slide / 0.4f), glassgramSmooth((slide - 0.25f) / 0.45f), glassgramSmooth(slide / 0.65f));
             }
         }
 

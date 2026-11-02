@@ -3108,6 +3108,17 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         return rightSlidingDialogContainer == null || !rightSlidingDialogContainer.hasFragment();
     }
 
+    /** The iOS-like header's own glass buttons, drawn again for what moved under them (the bar's own pieces are). */
+    private void glassgramInvalidateHeaderGlass() {
+        if (actionBar != null) {
+            actionBar.invalidateGlassgramExtraViews();
+        }
+        if (glassgramReadButton != null) {
+            glassgramReadButton.invalidate();
+            glassgramDeleteButton.invalidate();
+        }
+    }
+
     /** How far Edit is shown, 0 to 1: the rows draw their circles by it (DialogCell). */
     public float getGlassgramEditProgress() {
         return glassgramEditProgress;
@@ -3186,6 +3197,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             return count;
         });
+        actionBar.setGlassgramExtraViews(glassgramEditButton, glassgramComposeButton);
         // The menu's capsule ends a gap before the new message button
         actionBar.setGlassMenuEndInset(size + actionBar.getGlassIosGap());
         actionBar.setGlassPillOnlyForActionMode(true);
@@ -4970,6 +4982,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     if (contentView != null) {
                         contentView.updateBlurContent();
                     }
+                    // the iOS-like header's own glass buttons show the list moved under them
+                    glassgramInvalidateHeaderGlass();
                     viewPage.dialogsItemAnimator.onListScroll(-dy);
                     int firstVisiblePosition = -1;
                     int lastVisiblePosition = -1;
