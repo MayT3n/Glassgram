@@ -1042,7 +1042,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     // property of their RenderNodes: the pages stay still pictures) and this draws them over the
     // pages, in place. Only between two glass headers (the chats list, a chat), on Android 12+
     private ActionBar glassgramHeaderOut, glassgramHeaderIn;
-    private float glassgramHeaderOutAppear, glassgramHeaderInAppear;
+    private float glassgramHeaderOutAppear, glassgramHeaderInAppear, glassgramHeaderMorph;
     private Object glassgramHeaderNodes;
 
     /** The glass bar a page shows: a tabs page shows its tab's. */
@@ -1062,7 +1062,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
     }
 
     /** Crossfades the headers of the page going away and the one coming; false when they are not both glass. */
-    private boolean glassgramHeaderCrossfade(BaseFragment out, BaseFragment in, float outAppear, float inAppear) {
+    private boolean glassgramHeaderCrossfade(BaseFragment out, BaseFragment in, float outAppear, float inAppear, float morph) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !org.telegram.messenger.GlassgramConfig.iosChatsHeader) {
             return false;
         }
@@ -1082,6 +1082,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         barIn.setGlassgramAppear(0f);
         glassgramHeaderOutAppear = outAppear;
         glassgramHeaderInAppear = inAppear;
+        glassgramHeaderMorph = morph;
         invalidate();
         return true;
     }
@@ -1110,27 +1111,161 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
         if (glassgramHeaderNodes == null) {
             glassgramHeaderNodes = new GlassgramHeaderNodes();
         }
-        final GlassgramHeaderNodes nodes = (GlassgramHeaderNodes) glassgramHeaderNodes;
-        nodes.draw(canvas, this, glassgramHeaderOut, nodes.out, glassgramHeaderOutAppear, true);
-        nodes.draw(canvas, this, glassgramHeaderIn, nodes.in, glassgramHeaderInAppear, false);
+        ((GlassgramHeaderNodes) glassgramHeaderNodes).draw(canvas, this, glassgramHeaderOut, glassgramHeaderIn,
+            glassgramHeaderOutAppear, glassgramHeaderInAppear, glassgramHeaderMorph);
     }
 
     @androidx.annotation.RequiresApi(api = Build.VERSION_CODES.S)
     private static final class GlassgramHeaderNodes {
+        private static final int MAX_PIECES = 6;
         final android.graphics.RenderNode out = new android.graphics.RenderNode("glassgramHeaderOut");
         final android.graphics.RenderNode in = new android.graphics.RenderNode("glassgramHeaderIn");
         final android.graphics.RenderNode title = new android.graphics.RenderNode("glassgramHeaderTitle");
         private final float[] position = new float[2];
+        private final android.graphics.RectF[] piecesOut = new android.graphics.RectF[MAX_PIECES];
+        private final android.graphics.RectF[] piecesIn = new android.graphics.RectF[MAX_PIECES];
+        private final int[] tintsOut = new int[MAX_PIECES], tintsIn = new int[MAX_PIECES];
+        private final int[] pairOut = new int[MAX_PIECES];
+        private final boolean[] pairedIn = new boolean[MAX_PIECES];
+        private final android.graphics.RectF piece = new android.graphics.RectF();
+        private final android.graphics.Paint tintPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        GlassgramHeaderNodes() {
+            for (int i = 0; i < MAX_PIECES; i++) {
+                piecesOut[i] = new android.graphics.RectF();
+                piecesIn[i] = new android.graphics.RectF();
+            }
+        }
 
         /**
-         * Draws the bar in place, blurred and faded by appear. With sharpTitle (the leaving bar),
-         * as on iOS, only its buttons dissolve: the title stays sharp, fading as it moves a little
-         * towards the start.
+         * As on iOS: the glass of the leaving header flows into the coming one's shapes (morph, 0 to
+         * 1), piece by piece, while their contents cross through a blur (outAppear, inAppear); the
+         * leaving title stays sharp, fading as it moves a little towards the start.
          */
-        void draw(Canvas canvas, View layout, ActionBar bar, android.graphics.RenderNode node, float appear, boolean sharpTitle) {
-            if (appear <= 0f || bar.getWidth() <= 0 || bar.getHeight() <= 0 || !position(layout, bar)) {
+        void draw(Canvas canvas, View layout, ActionBar barOut, ActionBar barIn, float outAppear, float inAppear, float morph) {
+            if (barOut.getWidth() <= 0 || barIn.getWidth() <= 0 || !position(layout, barIn)) {
                 return;
             }
+            final float ix = position[0], iy = position[1];
+            if (!position(layout, barOut)) {
+                return;
+            }
+            final float ox = position[0], oy = position[1];
+
+            // The contents apart from their glass: drawing them also sets where each bar's glass is
+            boolean separateTitle = false;
+            ActionBar.glassgramContentOnly = true;
+            try {
+                separateTitle = record(barOut, out, true);
+                record(barIn, in, false);
+            } finally {
+                ActionBar.glassgramContentOnly = false;
+            }
+
+            // The glass, from the leaving header's pieces to the coming one's
+            final int nOut = barOut.getGlassgramPieces(piecesOut, tintsOut);
+            final int nIn = barIn.getGlassgramPieces(piecesIn, tintsIn);
+            for (int i = 0; i < nOut; i++) {
+                piecesOut[i].offset(ox, oy);
+            }
+            for (int j = 0; j < nIn; j++) {
+                piecesIn[j].offset(ix, iy);
+            }
+            pair(nOut, nIn);
+            final float m = 1f - (1f - morph) * (1f - morph) * (1f - morph);
+            // the coming glass over the leaving one in the first half, the leaving one gone in the second
+            final float outGlass = 1f - Math.max(0f, Math.min(1f, (m - 0.5f) * 2f));
+            final float inGlass = Math.max(0f, Math.min(1f, m * 2f));
+            for (int i = 0; i < nOut; i++) {
+                final int j = pairOut[i];
+                if (j >= 0) {
+                    lerp(piecesOut[i], piecesIn[j], m, piece);
+                    drawGlass(canvas, barOut, i, piece, ox, oy, outGlass, tintsOut[i], 1f - m);
+                    drawGlass(canvas, barIn, j, piece, ix, iy, inGlass, tintsIn[j], m);
+                } else {
+                    // nothing to become: it shrinks away
+                    scaled(piecesOut[i], 1f - 0.5f * m, piece);
+                    drawGlass(canvas, barOut, i, piece, ox, oy, 1f - m, tintsOut[i], 1f - m);
+                }
+            }
+            for (int j = 0; j < nIn; j++) {
+                if (!pairedIn[j]) {
+                    // nothing it comes from: it grows in its place
+                    scaled(piecesIn[j], 0.5f + 0.5f * m, piece);
+                    drawGlass(canvas, barIn, j, piece, ix, iy, m, tintsIn[j], m);
+                }
+            }
+
+            drawContent(canvas, out, ox, oy, outAppear);
+            if (separateTitle && outAppear > 0f) {
+                title.setAlpha(outAppear * title.getAlpha());
+                title.setTranslationX(-AndroidUtilities.dp(24) * (1f - outAppear));
+                canvas.save();
+                canvas.translate(ox, oy);
+                canvas.drawRenderNode(title);
+                canvas.restore();
+            }
+            drawContent(canvas, in, ix, iy, inAppear);
+        }
+
+        /** Pieces in order: the first with the first, the last with the last, the rest by order between. */
+        private void pair(int nOut, int nIn) {
+            for (int j = 0; j < MAX_PIECES; j++) {
+                pairedIn[j] = false;
+            }
+            for (int i = 0; i < nOut; i++) {
+                pairOut[i] = -1;
+            }
+            if (nOut == 0 || nIn == 0) {
+                return;
+            }
+            if (nOut == 1 || nIn == 1) {
+                pairOut[0] = 0;
+                pairedIn[0] = true;
+                return;
+            }
+            pairOut[nOut - 1] = nIn - 1;
+            pairedIn[nIn - 1] = true;
+            for (int i = 0; i < nOut - 1 && i < nIn - 1; i++) {
+                pairOut[i] = i;
+                pairedIn[i] = true;
+            }
+        }
+
+        private static void lerp(android.graphics.RectF a, android.graphics.RectF b, float t, android.graphics.RectF out) {
+            out.set(a.left + (b.left - a.left) * t, a.top + (b.top - a.top) * t,
+                a.right + (b.right - a.right) * t, a.bottom + (b.bottom - a.bottom) * t);
+        }
+
+        private static void scaled(android.graphics.RectF r, float scale, android.graphics.RectF out) {
+            final float hw = r.width() * scale / 2f, hh = r.height() * scale / 2f;
+            out.set(r.centerX() - hw, r.centerY() - hh, r.centerX() + hw, r.centerY() + hh);
+        }
+
+        private void drawGlass(Canvas canvas, ActionBar bar, int slot, android.graphics.RectF rect, float bx, float by, float alpha, int tint, float tintAlpha) {
+            if (alpha <= 0f || rect.isEmpty()) {
+                return;
+            }
+            final float radius = Math.min(rect.width(), rect.height()) / 2f;
+            final org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable glass = bar.getGlassgramMorphGlass(slot);
+            if (glass != null) {
+                canvas.save();
+                canvas.translate(bx, by);
+                glass.setBounds(Math.round(rect.left - bx), Math.round(rect.top - by), Math.round(rect.right - bx), Math.round(rect.bottom - by));
+                glass.setRadius(radius);
+                glass.setAlpha((int) (255 * alpha));
+                glass.draw(canvas);
+                canvas.restore();
+            }
+            if (tint != 0 && tintAlpha > 0f) {
+                tintPaint.setColor(tint);
+                tintPaint.setAlpha((int) (android.graphics.Color.alpha(tint) * Math.min(alpha, tintAlpha)));
+                canvas.drawRoundRect(rect, radius, radius, tintPaint);
+            }
+        }
+
+        /** Records the bar's contents; with sharpTitle its title apart (into title). Returns whether it was. */
+        private boolean record(ActionBar bar, android.graphics.RenderNode node, boolean sharpTitle) {
             final View titles = sharpTitle ? bar.getTitlesContainer() : null;
             final boolean separateTitle = titles != null && titles.getVisibility() == View.VISIBLE && titles.getAlpha() > 0f;
             node.setPosition(0, 0, bar.getWidth(), bar.getHeight());
@@ -1158,8 +1293,14 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                 } finally {
                     title.endRecording();
                 }
-                title.setAlpha(appear * titles.getAlpha());
-                title.setTranslationX(-AndroidUtilities.dp(24) * (1f - appear));
+                title.setAlpha(titles.getAlpha());
+            }
+            return separateTitle;
+        }
+
+        private static void drawContent(Canvas canvas, android.graphics.RenderNode node, float x, float y, float appear) {
+            if (appear <= 0f) {
+                return;
             }
             if (appear >= 1f) {
                 node.setRenderEffect(null);
@@ -1173,11 +1314,8 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     : fadeEffect);
             }
             canvas.save();
-            canvas.translate(position[0], position[1]);
+            canvas.translate(x, y);
             canvas.drawRenderNode(node);
-            if (separateTitle) {
-                canvas.drawRenderNode(title);
-            }
             canvas.restore();
         }
 
@@ -1213,11 +1351,16 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
      * header starting late and slowly).
      */
     private static float glassgramOutAppear(float time) {
-        return 1f - glassgramClamp(time / 0.2f);
+        return 1f - glassgramClamp(time / 0.16f);
     }
 
     private static float glassgramInAppear(float time) {
-        return glassgramClamp((time - 0.05f) / 0.25f);
+        return glassgramClamp((time - 0.08f) / 0.24f);
+    }
+
+    /** How far the glass has flowed into the coming header's shapes: within the first quarter, as on iOS. */
+    private static float glassgramMorph(float time) {
+        return glassgramClamp((time - 0.02f) / 0.22f);
     }
 
     public void setInnerTranslationX(float value) {
@@ -1231,7 +1374,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
             } else {
                 // The swipe back: the swiped page's header goes, the one underneath comes
                 glassgramHeaderCrossfade(fragmentsStack.get(fragmentsStack.size() - 1), fragmentsStack.get(fragmentsStack.size() - 2),
-                    glassgramOutAppear(slide), glassgramInAppear(slide));
+                    1f - glassgramClamp(slide / 0.3f), glassgramClamp((slide - 0.15f) / 0.35f), glassgramClamp(slide / 0.45f));
             }
         }
 
@@ -2221,7 +2364,7 @@ public class ActionBarLayout extends FrameLayout implements INavigationLayout, F
                     interpolated = decelerateInterpolator.getInterpolation(animationProgress);
                 }
                 if (iosSlide) {
-                    glassgramHeaderCrossfade(oldFragment, newFragment, glassgramOutAppear(animationProgress), glassgramInAppear(animationProgress));
+                    glassgramHeaderCrossfade(oldFragment, newFragment, glassgramOutAppear(animationProgress), glassgramInAppear(animationProgress), glassgramMorph(animationProgress));
                 }
                 if (iosSlide) {
                     // glassGram: opening slides the new page (containerView) in over the old one;

@@ -405,6 +405,66 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         }
     }
 
+    // glassGram: as on iOS, between the chats list and a chat the glass of one header flows into the
+    // other's shapes (ActionBarLayout): it draws the bars' contents apart from their glass, set by
+    // this flag meanwhile (drawing is on the main thread only), and the glass itself, from the
+    // pieces' shapes these give, morphing
+    public static boolean glassgramContentOnly;
+
+    /** Glass pieces a screen draws on its own on the bar (the chats list's Edit, new message), in the bar's coordinates. */
+    public interface GlassgramExtraPieces {
+        /** Adds the shown pieces from index start (their rects and tints, 0 for clear glass); returns the new count. */
+        int get(RectF[] out, int[] tints, int start);
+    }
+
+    private GlassgramExtraPieces glassgramExtraPieces;
+    private final BlurredBackgroundDrawable[] glassgramMorphGlass = new BlurredBackgroundDrawable[6];
+
+    public void setGlassgramExtraPieces(GlassgramExtraPieces pieces) {
+        glassgramExtraPieces = pieces;
+    }
+
+    /** The glass pieces as last drawn, left to right: their rects in this bar's coordinates and tints; their count. */
+    public int getGlassgramPieces(RectF[] out, int[] tints) {
+        if (!glassMode) {
+            return 0;
+        }
+        int count = 0;
+        for (int surface : new int[]{GLASS_BACK, GLASS_PILL, GLASS_MENU}) {
+            if (count < out.length && glassShown[surface] && !glassRect[surface].isEmpty()) {
+                out[count].set(glassRect[surface]);
+                tints[count] = 0;
+                count++;
+            }
+        }
+        if (glassgramExtraPieces != null) {
+            count = glassgramExtraPieces.get(out, tints, count);
+        }
+        // left to right
+        for (int i = 1; i < count; i++) {
+            for (int j = i; j > 0 && out[j].left < out[j - 1].left; j--) {
+                final float l = out[j].left, t = out[j].top, r = out[j].right, b = out[j].bottom;
+                out[j].set(out[j - 1]);
+                out[j - 1].set(l, t, r, b);
+                final int tint = tints[j];
+                tints[j] = tints[j - 1];
+                tints[j - 1] = tint;
+            }
+        }
+        return count;
+    }
+
+    /** A glass of this bar (what is under it, blurred) for a morphing piece, one per slot; null without glass. */
+    public BlurredBackgroundDrawable getGlassgramMorphGlass(int slot) {
+        if (glassFactory == null || slot < 0 || slot >= glassgramMorphGlass.length) {
+            return null;
+        }
+        if (glassgramMorphGlass[slot] == null) {
+            glassgramMorphGlass[slot] = glassFactory.create(this).setColorProvider(glassColorProvider);
+        }
+        return glassgramMorphGlass[slot];
+    }
+
     // glassGram: the chats list's iOS-like header. The menu's capsule moves in from the end for a
     // button of the screen's own there (new message), and the pill shows only under the selection
     // bar: the title stands in the middle of the bar on its own
@@ -1019,6 +1079,10 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
         final RectF r = glassRect[surface];
         r.set(b.left + padding, b.top + padding, b.right - padding, b.bottom - padding);
         glassShown[surface] = true;
+        if (glassgramContentOnly) {
+            // ActionBarLayout carries this glass into another bar's itself: only where it is counts
+            return;
+        }
         final BlurredBackgroundDrawable glass = drawable instanceof BlurredBackgroundDrawable ? (BlurredBackgroundDrawable) drawable : null;
         // glassGram: the piece is the library's LiquidButton, its glass and its highlight; what it
         // carries follows its press (glassTransform)
@@ -3306,7 +3370,7 @@ public class ActionBar extends FrameLayout implements FactorAnimator.Target, The
             }
         }
 
-        if (glassMode) {
+        if (glassMode && !glassgramContentOnly) {
             drawGlassNecks(canvas);
         }
 

@@ -3170,6 +3170,22 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return true;
         }, iBlur3FactoryLiquidGlass, colors);
 
+        // Edit and the new message button are the header's glass too when it flows into a chat's
+        actionBar.setGlassgramExtraPieces((out, tints, start) -> {
+            int count = start;
+            final GlassgramHeaderButton[] buttons = {glassgramEditButton, glassgramComposeButton};
+            for (GlassgramHeaderButton button : buttons) {
+                if (count >= out.length || button == null || button.getVisibility() != View.VISIBLE || button.getAlpha() < 0.5f
+                        || glassgramHeaderButtons.getVisibility() != View.VISIBLE || glassgramHeaderButtons.getAlpha() < 0.5f) {
+                    continue;
+                }
+                final float x = glassgramHeaderButtons.getX() + button.getX(), y = glassgramHeaderButtons.getY() + button.getY();
+                out[count].set(x, y, x + button.getWidth(), y + button.getHeight());
+                tints[count] = button.getTint();
+                count++;
+            }
+            return count;
+        });
         // The menu's capsule ends a gap before the new message button
         actionBar.setGlassMenuEndInset(size + actionBar.getGlassIosGap());
         actionBar.setGlassPillOnlyForActionMode(true);

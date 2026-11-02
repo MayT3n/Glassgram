@@ -162,6 +162,10 @@ public class GlassgramHeaderButton extends FrameLayout {
         }
     }
 
+    public int getTint() {
+        return tint;
+    }
+
     public void updateColors() {
         glass.updateColors();
         invalidate();
@@ -206,6 +210,11 @@ public class GlassgramHeaderButton extends FrameLayout {
         }
         final float right = left + w;
         final float radius = h / 2f;
+        if (org.telegram.ui.ActionBar.ActionBar.glassgramContentOnly) {
+            // the header's glass is being carried into another header's: only what the button carries
+            super.dispatchDraw(canvas);
+            return;
+        }
         drawMerge(canvas, left, right, h);
         final int p = dp(GLASS_PADDING_DP);
         glass.setBounds(Math.round(left) - p, -p, Math.round(right) + p, Math.round(h) + p);
