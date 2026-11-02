@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- glassGram: a new story as on iOS: a plus in a ring, solid on the left, dashed on the right -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M11.2505,20.5673 A8.6,8.6 0 1,1 15.6345,4.2058"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M17.6425,5.5096 A8.6,8.6 0 0,1 20.2242,9.4854 M20.5987,11.8499 A8.6,8.6 0 0,1 19.3717,16.4292 M17.8652,18.2898 A8.6,8.6 0 0,1 13.6409,20.4417"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,8.2 L12,15.8 M8.2,12 L15.8,12"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+</vector>

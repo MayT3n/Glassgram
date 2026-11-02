@@ -3672,7 +3672,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 glassgramProxyItem = menu.addItem(GLASSGRAM_PROXY_ITEM, glassgramProxyDrawable);
                 glassgramProxyItem.setContentDescription(getString(R.string.ProxySettings));
                 glassgramProxyItem.setOnClickListener(v -> presentFragment(new ProxyListActivity()));
-                glassgramStoryItem = menu.addItem(GLASSGRAM_STORY_ITEM, R.drawable.outline_fab_story_24);
+                // iOS's new story icon: a plus in a ring dashed on one side
+                glassgramStoryItem = menu.addItem(GLASSGRAM_STORY_ITEM, R.drawable.glassgram_story_add_24);
                 glassgramStoryItem.setContentDescription(getString(R.string.StoryPrivacyButtonPost));
                 glassgramStoryItem.setOnClickListener(v -> openStoriesRecorder());
             }
