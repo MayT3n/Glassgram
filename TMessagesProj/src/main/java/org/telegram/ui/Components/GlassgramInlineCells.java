@@ -89,6 +89,11 @@ public final class GlassgramInlineCells {
         }
 
         @Override
+        public boolean equals(UItem a, UItem b) {
+            return a.id == b.id;
+        }
+
+        @Override
         public boolean contentsEquals(UItem a, UItem b) {
             return a.id == b.id && a.iconResId == b.iconResId && TextUtils.equals(a.text, b.text) && TextUtils.equals(a.subtext, b.subtext);
         }
@@ -148,6 +153,11 @@ public final class GlassgramInlineCells {
                 title.arrow.setRotation(rotation);
             }
             title.id = item.id;
+        }
+
+        @Override
+        public boolean equals(UItem a, UItem b) {
+            return a.id == b.id;
         }
 
         @Override
@@ -279,6 +289,12 @@ public final class GlassgramInlineCells {
         @Override
         public boolean isClickable() {
             return false;
+        }
+
+        @Override
+        public boolean equals(UItem a, UItem b) {
+            // the same capability, whatever its examples give now: rebound, not taken out and put back
+            return a.id == b.id;
         }
 
         @Override
