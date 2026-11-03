@@ -5380,6 +5380,7 @@ public class ChatActivityEnterView extends FrameLayout implements
     }
 
     private ArrayList<TextWatcher> messageEditTextWatchers;
+    private GlassgramInlineInput glassgramInlineInput;
     private boolean messageEditTextEnabled = true;
 
     private class ChatActivityEditTextCaption extends EditTextCaption {
@@ -5562,6 +5563,9 @@ public class ChatActivityEnterView extends FrameLayout implements
         @Override
         protected void onSelectionChanged(int selStart, int selEnd) {
             super.onSelectionChanged(selStart, selEnd);
+            if (glassgramInlineInput != null) {
+                glassgramInlineInput.onSelectionChanged(selStart, selEnd);
+            }
             if (delegate != null) {
                 delegate.onTextSelectionChanged(selStart, selEnd);
             }
@@ -6130,6 +6134,8 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         });
         messageEditText.addTextChangedListener(new EditTextSuggestionsFix());
+        // glassGram: Inline Results, the result in gray after "=" (Space writes it in)
+        glassgramInlineInput = new GlassgramInlineInput(messageEditText);
         messageEditText.setEnabled(messageEditTextEnabled);
         if (messageEditTextWatchers != null) {
             for (TextWatcher textWatcher : messageEditTextWatchers) {

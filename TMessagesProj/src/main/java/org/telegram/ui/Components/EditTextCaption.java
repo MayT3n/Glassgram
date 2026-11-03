@@ -17,6 +17,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.Build;
@@ -917,7 +918,56 @@ public class EditTextCaption extends EditTextBoldCursor implements FloatingToolb
                 rightText.draw(canvas, right, getHeight() / 2f + dp(1), hintColor, 1.0f);
             }
         }
+        drawGlassgramGhost(canvas);
         canvas.restore();
+    }
+
+    // glassGram: Inline Results, the result written in gray right after "=" (GlassgramInlineInput)
+    private String glassgramGhost;
+    private int glassgramGhostOffset = -1;
+    private final AnimatedFloat glassgramGhostAlpha = new AnimatedFloat(this, 0, 200, CubicBezierInterpolator.EASE_OUT);
+
+    /** Shows text in the hint's color right after the given offset, as if written there; null hides it. */
+    public void setGlassgramGhost(String text, int offset) {
+        if (TextUtils.equals(text, glassgramGhost) && offset == glassgramGhostOffset) {
+            return;
+        }
+        if (glassgramGhost == null && text != null) {
+            glassgramGhostAlpha.set(0, true);
+        }
+        glassgramGhost = text;
+        glassgramGhostOffset = text != null ? offset : -1;
+        invalidate();
+    }
+
+    public String getGlassgramGhost() {
+        return glassgramGhost;
+    }
+
+    private void drawGlassgramGhost(Canvas canvas) {
+        final String ghost = glassgramGhost;
+        final Layout layout = getLayout();
+        if (ghost == null || layout == null || glassgramGhostOffset < 0 || glassgramGhostOffset > length() || layout.getText().length() < glassgramGhostOffset) {
+            return;
+        }
+        final float alpha = glassgramGhostAlpha.set(1f);
+        try {
+            final int line = layout.getLineForOffset(glassgramGhostOffset);
+            int voffset = 0;
+            if ((getGravity() & Gravity.VERTICAL_GRAVITY_MASK) != Gravity.TOP) {
+                voffset = getTotalPaddingTop() - getExtendedPaddingTop();
+            }
+            final float x = getCompoundPaddingLeft() + layout.getPrimaryHorizontal(glassgramGhostOffset);
+            final float y = getExtendedPaddingTop() + voffset + layout.getLineBaseline(line);
+            final TextPaint paint = getPaint();
+            final int color = paint.getColor();
+            paint.setColor(hintColor);
+            paint.setAlpha((int) (Color.alpha(hintColor) * alpha));
+            canvas.drawText(ghost, x, y, paint);
+            paint.setColor(color);
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
     }
 
     public void setRightText(CharSequence text) {

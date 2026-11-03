@@ -28,6 +28,8 @@ import org.telegram.messenger.GlassgramApi;
 import org.telegram.messenger.GlassgramChatLock;
 import org.telegram.messenger.GlassgramConfig;
 import org.telegram.messenger.GlassgramFonts;
+import org.telegram.messenger.GlassgramInlineEngine;
+import org.telegram.messenger.GlassgramInlineResults;
 import org.telegram.messenger.GlassgramProxy;
 import org.telegram.messenger.GlassgramRemoteConfig;
 import org.telegram.messenger.GlassgramSpyStorage;
@@ -42,9 +44,11 @@ import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.CheckBoxCell;
 import org.telegram.ui.Cells.ChatMessageCell;
+import org.telegram.ui.Cells.TextCell;
 import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.EditTextBoldCursor;
+import org.telegram.ui.Components.GlassgramInlineCells;
 import org.telegram.ui.Components.GlassgramSettingsCells;
 import org.telegram.ui.Components.GlassgramWallpaperLayout;
 import org.telegram.ui.Components.LayoutHelper;
@@ -70,6 +74,7 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     public static final int PAGE_TABS = 8;
     public static final int PAGE_MESSAGE_MENU = 9;
     public static final int PAGE_CHAT_LOCK = 10;
+    public static final int PAGE_INLINE_RESULTS = 11;
 
     private static final int ID_GENERAL = 1;
     private static final int ID_APPEARANCE = 2;
@@ -184,7 +189,7 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     private static final int ID_TABS_APPLY = 137;
     // + GlassgramConfig.TAB_*
     private static final int ID_TAB = 140;
-    private static final int ID_INPUT_CALCULATOR = 150;
+    private static final int ID_INLINE_RESULTS = 150;
     private static final int ID_MINI_AVATARS = 151;
     private static final int ID_OFFLINE_TRANSCRIBE = 152;
     private static final int ID_TRANSCRIBE_LANG = 153;
@@ -203,6 +208,17 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     private static final int ID_GHOST_SILENT = 169;
     private static final int ID_GHOST_STORY_ALERT = 170;
     private static final int ID_IOS_CHATS_HEADER = 171;
+    private static final int ID_INLINE_ENABLED = 172;
+    private static final int ID_INLINE_CALCULATOR = 173;
+    private static final int ID_INLINE_CURRENCIES = 174;
+    private static final int ID_INLINE_UNITS = 175;
+    private static final int ID_INLINE_TIME_ZONES = 176;
+    private static final int ID_INLINE_GROUP_DIGITS = 177;
+    private static final int ID_INLINE_ANGLES = 178;
+    private static final int ID_INLINE_CURRENCY = 179;
+    private static final int ID_INLINE_MEASURE = 180;
+    private static final int ID_INLINE_CARD = 500;
+    private static final int ID_INLINE_EXAMPLES = 510;
     private static final int ID_MENU_ITEM = 300;
     private static final int ID_LOCKED_CHAT = 400;
 
@@ -210,6 +226,8 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     private boolean ghostExpanded;
     private boolean reactionsExpanded;
     private boolean autoPauseExpanded;
+    /** Which of Inline Results' capabilities are open. */
+    private final boolean[] inlineExpanded = new boolean[INLINE_CARDS];
 
     private GlassgramWallpaperLayout previewView;
     private View stickerSizeView;
@@ -256,6 +274,8 @@ public class GlassgramSettingsActivity extends UniversalFragment {
                 return getString(R.string.GlassgramMessageMenu);
             case PAGE_CHAT_LOCK:
                 return getString(R.string.GlassgramChatLockSettings);
+            case PAGE_INLINE_RESULTS:
+                return getString(R.string.GlassgramInlineResults);
             default:
                 // The header below the action bar carries the name
                 return "";
@@ -275,6 +295,12 @@ public class GlassgramSettingsActivity extends UniversalFragment {
                 });
             }
         }
+        if (page == PAGE_INLINE_RESULTS) {
+            // the rates the examples and the "updated at" show
+            GlassgramInlineResults.refresh(false, () -> {
+                if (listView != null) listView.adapter.update(true);
+            });
+        }
         // the team's rules for this phone as they are now, before an option they turn off is tapped
         GlassgramRemoteConfig.refresh(GlassgramRemoteConfig.REFRESH_SETTINGS, () -> {
             if (listView != null) listView.adapter.update(true);
@@ -285,8 +311,8 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     @Override
     public void onResume() {
         super.onResume();
-        // back from the team's screen, maybe signed out there
-        if (page == PAGE_MAIN && listView != null) {
+        // back from the team's screen, maybe signed out there; back from Inline Results with other features
+        if ((page == PAGE_MAIN || page == PAGE_CHATS) && listView != null) {
             listView.adapter.update(true);
         }
     }
@@ -391,7 +417,7 @@ public class GlassgramSettingsActivity extends UniversalFragment {
                 items.add(UItem.asCheck(ID_HIDE_KEYBOARD, getString(R.string.GlassgramHideKeyboardOnScroll)).setChecked(GlassgramConfig.hideKeyboardOnScroll));
                 items.add(UItem.asCheck(ID_COMMA_MENTION, getString(R.string.GlassgramCommaAfterMention)).setChecked(GlassgramConfig.commaAfterMention));
                 items.add(buttonCheck(ID_BUTTON_DATA, getString(R.string.GlassgramButtonData), getString(R.string.GlassgramButtonDataInfo)).setChecked(GlassgramConfig.inlineButtonData));
-                items.add(buttonCheck(ID_INPUT_CALCULATOR, getString(R.string.GlassgramInputCalculator), getString(R.string.GlassgramInputCalculatorInfo)).setChecked(GlassgramConfig.inputCalculator));
+                items.add(GlassgramInlineCells.SubtitleButton.of(ID_INLINE_RESULTS, R.drawable.glassgram_inline_calc_24, getString(R.string.GlassgramInlineResults), inlineSummary()));
                 items.add(UItem.asCheck(ID_HIDE_SEND_AS, getString(R.string.GlassgramHideSendAs)).setChecked(GlassgramConfig.hideSendAsButton));
                 items.add(UItem.asShadow(getString(R.string.GlassgramHideSendAsInfo)));
                 items.add(header(getString(R.string.GlassgramMessages)));
@@ -480,6 +506,9 @@ public class GlassgramSettingsActivity extends UniversalFragment {
                 }
                 break;
             }
+            case PAGE_INLINE_RESULTS:
+                fillInlineResults(items);
+                break;
             case PAGE_CHAT_LOCK: {
                 final boolean hasPin = GlassgramChatLock.hasPin();
                 items.add(header(getString(R.string.GlassgramChatLockPinHeader)));
@@ -656,6 +685,13 @@ public class GlassgramSettingsActivity extends UniversalFragment {
             showForcedOff(this, feature);
             return;
         }
+        if (item.id >= ID_INLINE_CARD && item.id < ID_INLINE_CARD + INLINE_CARDS) {
+            // a capability opens with its examples, or closes
+            final int card = item.id - ID_INLINE_CARD;
+            inlineExpanded[card] = !inlineExpanded[card];
+            if (listView != null) listView.adapter.update(true);
+            return;
+        }
         switch (item.id) {
             case ID_GENERAL:
                 presentFragment(new GlassgramSettingsActivity(PAGE_GENERAL));
@@ -783,6 +819,45 @@ public class GlassgramSettingsActivity extends UniversalFragment {
             case ID_CHAT_LOCK:
                 presentFragment(new GlassgramSettingsActivity(PAGE_CHAT_LOCK));
                 return;
+            case ID_INLINE_RESULTS:
+                presentFragment(new GlassgramSettingsActivity(PAGE_INLINE_RESULTS));
+                return;
+            case ID_INLINE_CALCULATOR:
+            case ID_INLINE_CURRENCIES:
+            case ID_INLINE_UNITS:
+            case ID_INLINE_TIME_ZONES:
+                toggleInlineFeature(item.id, view);
+                return;
+            case ID_INLINE_ANGLES:
+                showChoice(getString(R.string.GlassgramInlineAngles), new String[]{getString(R.string.GlassgramInlineDegrees), getString(R.string.GlassgramInlineRadians)},
+                    GlassgramConfig.inlineRadians ? 1 : 0, which -> {
+                        GlassgramConfig.inlineRadians = which == 1;
+                        GlassgramConfig.putBoolean("inlineRadians", GlassgramConfig.inlineRadians);
+                    }, false);
+                return;
+            case ID_INLINE_MEASURE:
+                showChoice(getString(R.string.GlassgramInlineMeasure), inlineMeasureNames(), GlassgramConfig.inlineMeasure, which -> {
+                    GlassgramConfig.inlineMeasure = which;
+                    GlassgramConfig.putInt("inlineMeasure", which);
+                }, false);
+                return;
+            case ID_INLINE_CURRENCY: {
+                final String[] codes = GlassgramInlineResults.CURRENCY_CHOICES;
+                final String[] names = new String[codes.length + 1];
+                names[0] = LocaleController.formatString(R.string.GlassgramInlineAutoCurrency, GlassgramInlineResults.autoCurrency());
+                int current = 0;
+                for (int i = 0; i < codes.length; i++) {
+                    names[i + 1] = currencyName(codes[i]);
+                    if (codes[i].equals(GlassgramConfig.inlineCurrency)) {
+                        current = i + 1;
+                    }
+                }
+                showChoice(getString(R.string.GlassgramInlineDefaultCurrency), names, current, which -> {
+                    GlassgramConfig.inlineCurrency = which == 0 ? "auto" : codes[which - 1];
+                    GlassgramConfig.putString("inlineCurrency", GlassgramConfig.inlineCurrency);
+                }, false);
+                return;
+            }
             case ID_LOCK_PIN:
                 if (GlassgramChatLock.hasPin()) {
                     GlassgramChatLockUi.requirePin(this, () -> GlassgramChatLockUi.createPin(this, this::onPinChanged), null);
@@ -1032,9 +1107,15 @@ public class GlassgramSettingsActivity extends UniversalFragment {
                 value = GlassgramConfig.senderMiniAvatars = !GlassgramConfig.senderMiniAvatars;
                 GlassgramConfig.putBoolean("senderMiniAvatars", value);
                 break;
-            case ID_INPUT_CALCULATOR:
-                value = GlassgramConfig.inputCalculator = !GlassgramConfig.inputCalculator;
-                GlassgramConfig.putBoolean("inputCalculator", value);
+            case ID_INLINE_ENABLED:
+                value = GlassgramConfig.inlineResults = !GlassgramConfig.inlineResults;
+                GlassgramConfig.putBoolean("inlineResults", value);
+                break;
+            case ID_INLINE_GROUP_DIGITS:
+                value = GlassgramConfig.inlineGroupDigits = !GlassgramConfig.inlineGroupDigits;
+                GlassgramConfig.putBoolean("inlineGroupDigits", value);
+                // the examples are written again
+                if (listView != null) listView.adapter.update(true);
                 break;
             case ID_HIDE_ATTACH_CAMERA:
                 value = GlassgramConfig.hideAttachCamera = !GlassgramConfig.hideAttachCamera;
@@ -1764,6 +1845,11 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     }
 
     private void showChoice(CharSequence title, String[] names, int current, org.telegram.messenger.Utilities.Callback<Integer> onChoose) {
+        showChoice(title, names, current, onChoose, true);
+    }
+
+    /** rebuild: the other screens are built again, for a choice they show. */
+    private void showChoice(CharSequence title, String[] names, int current, org.telegram.messenger.Utilities.Callback<Integer> onChoose, boolean rebuild) {
         if (getParentActivity() == null) {
             return;
         }
@@ -1778,7 +1864,7 @@ public class GlassgramSettingsActivity extends UniversalFragment {
             if (listView != null) {
                 listView.adapter.update(true);
             }
-            if (parentLayout != null) {
+            if (rebuild && parentLayout != null) {
                 parentLayout.rebuildAllFragmentViews(false, false);
             }
         });
@@ -1907,6 +1993,197 @@ public class GlassgramSettingsActivity extends UniversalFragment {
     private boolean tabsChanged;
 
     /** A switch with its description under it, shown whole however long. */
+    // ------------------------------------------------------------------------------------------
+    // Inline Results (exteraGram's): the page, its features, settings and capabilities
+
+    private static final int INLINE_CARDS = 5;
+
+    private void fillInlineResults(ArrayList<UItem> items) {
+        items.add(UItem.asCheck(ID_INLINE_ENABLED, getString(R.string.GlassgramInlineEnable)).setChecked(GlassgramConfig.inlineResults));
+        items.add(UItem.asShadow(getString(R.string.GlassgramInlineInfo)));
+
+        items.add(header(getString(R.string.GlassgramInlineFeatures)));
+        items.add(GlassgramInlineCells.IconCheck.of(ID_INLINE_CALCULATOR, R.drawable.glassgram_inline_calc_24,
+            getString(R.string.GlassgramInlineCalculator), GlassgramConfig.inlineCalculator));
+        items.add(GlassgramInlineCells.IconCheck.of(ID_INLINE_CURRENCIES, R.drawable.glassgram_inline_money_24,
+            TextCell.applyNewSpan(getString(R.string.GlassgramInlineCurrencies)), GlassgramConfig.inlineCurrencies));
+        items.add(GlassgramInlineCells.IconCheck.of(ID_INLINE_UNITS, R.drawable.glassgram_inline_ruler_24,
+            TextCell.applyNewSpan(getString(R.string.GlassgramInlineUnits)), GlassgramConfig.inlineUnits));
+        items.add(GlassgramInlineCells.IconCheck.of(ID_INLINE_TIME_ZONES, R.drawable.glassgram_inline_globe_24,
+            TextCell.applyNewSpan(getString(R.string.GlassgramInlineTimeZones)), GlassgramConfig.inlineTimeZones));
+        items.add(UItem.asShadow(null));
+
+        items.add(header(getString(R.string.GlassgramInlineSettings)));
+        items.add(UItem.asCheck(ID_INLINE_GROUP_DIGITS, getString(R.string.GlassgramInlineGroupDigits)).setChecked(GlassgramConfig.inlineGroupDigits));
+        items.add(UItem.asButton(ID_INLINE_ANGLES, getString(R.string.GlassgramInlineAngles),
+            getString(GlassgramConfig.inlineRadians ? R.string.GlassgramInlineRadians : R.string.GlassgramInlineDegrees)));
+        final String currency = GlassgramConfig.inlineCurrency;
+        items.add(UItem.asButton(ID_INLINE_CURRENCY, getString(R.string.GlassgramInlineDefaultCurrency),
+            TextUtils.isEmpty(currency) || "auto".equals(currency) ? getString(R.string.GlassgramInlineAuto) : currency));
+        items.add(UItem.asButton(ID_INLINE_MEASURE, getString(R.string.GlassgramInlineMeasure), inlineMeasureNames()[Math.max(0, Math.min(2, GlassgramConfig.inlineMeasure))]));
+        items.add(UItem.asShadow(inlineRatesInfo()));
+
+        items.add(header(getString(R.string.GlassgramInlineCapabilities)));
+        final int[] icons = {R.drawable.glassgram_inline_calc_24, R.drawable.glassgram_inline_percent_24, R.drawable.glassgram_inline_money_24,
+            R.drawable.glassgram_inline_ruler_24, R.drawable.glassgram_inline_globe_24};
+        final int[] titles = {R.string.GlassgramInlineArithmetic, R.string.GlassgramInlinePercents, R.string.GlassgramInlineCurrencies,
+            R.string.GlassgramInlineUnits, R.string.GlassgramInlineTimeZones};
+        final int[] subtitles = {R.string.GlassgramInlineArithmeticSub, R.string.GlassgramInlinePercentsSub, R.string.GlassgramInlineCurrenciesSub,
+            R.string.GlassgramInlineUnitsSub, R.string.GlassgramInlineTimeZonesSub};
+        final GlassgramInlineEngine.Options options = GlassgramInlineResults.options();
+        // the examples work whatever is turned off
+        options.calculator = options.currencies = options.units = options.timeZones = true;
+        options.perUsd = GlassgramInlineResults.perUsd();
+        for (int i = 0; i < INLINE_CARDS; i++) {
+            items.add(GlassgramInlineCells.CapabilityTitle.of(ID_INLINE_CARD + i, icons[i], getString(titles[i]), getString(subtitles[i]), inlineExpanded[i]));
+            if (inlineExpanded[i]) {
+                items.add(GlassgramInlineCells.Examples.of(ID_INLINE_EXAMPLES + i, inlineBlocks(i, options), inlineCopy));
+            }
+        }
+        items.add(UItem.asShadow(getString(R.string.GlassgramInlineCopyInfo)));
+    }
+
+    private final org.telegram.messenger.Utilities.Callback<String> inlineCopy = text -> {
+        AndroidUtilities.addToClipboard(text);
+        BulletinFactory.of(this).createCopyBulletin(getString(R.string.TextCopied)).show();
+    };
+
+    private void toggleInlineFeature(int id, View view) {
+        final boolean value;
+        switch (id) {
+            case ID_INLINE_CALCULATOR:
+                value = GlassgramConfig.inlineCalculator = !GlassgramConfig.inlineCalculator;
+                GlassgramConfig.putBoolean("inlineCalculator", value);
+                break;
+            case ID_INLINE_CURRENCIES:
+                value = GlassgramConfig.inlineCurrencies = !GlassgramConfig.inlineCurrencies;
+                GlassgramConfig.putBoolean("inlineCurrencies", value);
+                if (value) {
+                    GlassgramInlineResults.refresh(false, () -> {
+                        if (listView != null) listView.adapter.update(true);
+                    });
+                }
+                break;
+            case ID_INLINE_UNITS:
+                value = GlassgramConfig.inlineUnits = !GlassgramConfig.inlineUnits;
+                GlassgramConfig.putBoolean("inlineUnits", value);
+                break;
+            case ID_INLINE_TIME_ZONES:
+                value = GlassgramConfig.inlineTimeZones = !GlassgramConfig.inlineTimeZones;
+                GlassgramConfig.putBoolean("inlineTimeZones", value);
+                break;
+            default:
+                return;
+        }
+        if (view instanceof TextCell) {
+            ((TextCell) view).setChecked(value);
+        }
+        if (listView != null) listView.adapter.update(true);
+    }
+
+    /** The features turned on, for the row on the Chats page: "Calculator, Currencies and Units". */
+    private static String inlineSummary() {
+        if (!GlassgramConfig.inlineResults) {
+            return getString(R.string.GlassgramInlineOff);
+        }
+        final ArrayList<String> names = new ArrayList<>();
+        if (GlassgramConfig.inlineCalculator) names.add(getString(R.string.GlassgramInlineCalculator));
+        if (GlassgramConfig.inlineCurrencies) names.add(getString(R.string.GlassgramInlineCurrencies));
+        if (GlassgramConfig.inlineUnits) names.add(getString(R.string.GlassgramInlineUnitsShort));
+        if (GlassgramConfig.inlineTimeZones) names.add(getString(R.string.GlassgramInlineTimeZones));
+        if (names.isEmpty()) {
+            return getString(R.string.GlassgramInlineOff);
+        }
+        if (names.size() == 1) {
+            return names.get(0);
+        }
+        final StringBuilder b = new StringBuilder();
+        for (int i = 0; i < names.size() - 1; i++) {
+            if (i > 0) {
+                b.append(", ");
+            }
+            b.append(names.get(i));
+        }
+        return LocaleController.formatString(R.string.GlassgramInlineAnd, b.toString(), names.get(names.size() - 1));
+    }
+
+    private static String[] inlineMeasureNames() {
+        return new String[]{getString(R.string.GlassgramInlineAuto), getString(R.string.GlassgramInlineMetric), getString(R.string.GlassgramInlineImperial)};
+    }
+
+    private static String currencyName(String code) {
+        switch (code) {
+            case "XTR": return "XTR — Telegram Stars";
+            case "GRAM": return "GRAM — Gram (Toncoin)";
+            case "BTC": return "BTC — Bitcoin";
+            case "USDT": return "USDT — Tether";
+        }
+        try {
+            final java.util.Currency currency = java.util.Currency.getInstance(code);
+            return code + " — " + currency.getDisplayName(LocaleController.getInstance().getCurrentLocale());
+        } catch (Exception e) {
+            return code;
+        }
+    }
+
+    /** "Auto picks the default currency by your phone number. Exchange rates updated at 23:11:12." */
+    private static String inlineRatesInfo() {
+        final long time = GlassgramInlineResults.ratesTime();
+        if (time <= 0) {
+            return getString(R.string.GlassgramInlineAutoInfo) + " " + getString(R.string.GlassgramInlineRatesNone);
+        }
+        final java.util.Date date = new java.util.Date(time);
+        String when = new java.text.SimpleDateFormat(LocaleController.is24HourFormat ? "HH:mm:ss" : "h:mm:ss a", LocaleController.getInstance().getCurrentLocale()).format(date);
+        if (!android.text.format.DateUtils.isToday(time)) {
+            when = LocaleController.getInstance().getFormatterDayMonth().format(date) + ", " + when;
+        }
+        return getString(R.string.GlassgramInlineAutoInfo) + " " + LocaleController.formatString(R.string.GlassgramInlineRatesTime, when);
+    }
+
+    /** A capability's explanations and examples, worked out with the settings as they are. */
+    private GlassgramInlineCells.Block[] inlineBlocks(int card, GlassgramInlineEngine.Options o) {
+        final boolean ru = "ru".equals(LocaleController.getInstance().getCurrentLocale().getLanguage());
+        switch (card) {
+            case 0:
+                return new GlassgramInlineCells.Block[]{
+                    block(o, null, null, "(120 + 80) / 4", "√144 + 2^3"),
+                    block(o, getString(R.string.GlassgramInlineFunctionsInfo), "round min max abs sqrt log ln sin cos tan pi e", "max(12, 40, 7)", "sin(30)"),
+                    block(o, getString(R.string.GlassgramInlineBasesInfo), null, "hex(255)", "dec(ff, 16)", "0xff + 1"),
+                };
+            case 1:
+                return new GlassgramInlineCells.Block[]{
+                    block(o, getString(R.string.GlassgramInlinePercentInfo), null, "2300 - 15%", ru ? "12% от 1200" : "12% of 1200"),
+                    block(o, getString(R.string.GlassgramInlineShorthandInfo), null, ru ? "300к / 12" : "300k / 12"),
+                };
+            case 2: {
+                final String foreign = "EUR".equals(o.defaultCurrency) ? "100$" : "100€";
+                return new GlassgramInlineCells.Block[]{
+                    block(o, getString(R.string.GlassgramInlineCurrenciesInfo), null, foreign, ru ? "500 звёзд" : "500 stars"),
+                    block(o, null, null, ru ? "100 долларов в евро" : "100 dollars to euros", ru ? "5к ₽ в $" : "5k ₽ to $", ru ? "50$ в GRAM" : "50$ to GRAM"),
+                };
+            }
+            case 3:
+                return new GlassgramInlineCells.Block[]{
+                    block(o, getString(R.string.GlassgramInlineUnitsInfo), null, o.imperial ? "22°C" : "72°F", o.imperial ? (ru ? "16 км" : "16 km") : (ru ? "10 миль" : "10 miles")),
+                    block(o, null, null, ru ? "5 кг в lb" : "5 kg to lb", ru ? "100 км/ч в mph" : "100 km/h to mph"),
+                    block(o, getString(R.string.GlassgramInlineDurationsInfo), null, ru ? "90 мин" : "90 min", ru ? "2 ч + 45 мин" : "2 h + 45 min"),
+                };
+            default:
+                return new GlassgramInlineCells.Block[]{
+                    block(o, getString(R.string.GlassgramInlineTimeInfo), null, "6pm est"),
+                    block(o, getString(R.string.GlassgramInlineTimeCityInfo), null, ru ? "12:00 в токио" : "12:00 in tokyo", ru ? "сейчас в нью-йорке" : "now in new york"),
+                };
+        }
+    }
+
+    private static GlassgramInlineCells.Block block(GlassgramInlineEngine.Options o, CharSequence text, String code, String... expressions) {
+        final String[] results = new String[expressions.length];
+        for (int i = 0; i < expressions.length; i++) {
+            results[i] = GlassgramInlineEngine.evaluate(expressions[i], o);
+        }
+        return new GlassgramInlineCells.Block(text, code, expressions, results);
+    }
+
     private static UItem buttonCheck(int id, CharSequence text, CharSequence subtext) {
         return UItem.asButtonCheck(id, text, subtext).wrapText();
     }

@@ -508,7 +508,6 @@ public class ChatActivity extends BaseFragment implements
     private AnimatedTextView selectedMessagesCountTextView;
     private RecyclerListView.OnItemClickListener mentionsOnItemClickListener;
     private SuggestEmojiView suggestEmojiPanel;
-    private org.telegram.ui.Components.GlassgramCalcHint glassgramCalcHint;
     private ActionBarMenuItem.Item muteItem;
     private ActionBarMenuItem.Item muteItemGap;
     private ActionBarMenuItem.Item feeItemGap;
@@ -2185,9 +2184,6 @@ public class ChatActivity extends BaseFragment implements
 
         @Override
         public void onTextSelectionChanged(int start, int end) {
-            if (glassgramCalcHint != null && chatActivityEnterView != null) {
-                glassgramCalcHint.update(chatActivityEnterView.getFieldText(), end);
-            }
             if (editTextItem == null) {
                 return;
             }
@@ -2296,9 +2292,6 @@ public class ChatActivity extends BaseFragment implements
         @Override
         public void onTextChanged(final CharSequence text, boolean bigChange, boolean fromDraft) {
             MediaController.getInstance().setInputFieldHasText(!TextUtils.isEmpty(text) || chatActivityEnterView.isEditingMessage());
-            if (glassgramCalcHint != null) {
-                glassgramCalcHint.update(fromDraft ? null : text, chatActivityEnterView.getCursorPosition());
-            }
             if (mentionContainer != null && mentionContainer.getAdapter() != null) {
                 mentionContainer.getAdapter().searchUsernameOrHashtag(text, chatActivityEnterView.getCursorPosition(), messages, false, false);
             }
@@ -8409,9 +8402,6 @@ public class ChatActivity extends BaseFragment implements
             LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 160, Gravity.LEFT | Gravity.BOTTOM, 7, 0, 7, 0)
         );
         suggestEmojiPanel.setVisibility(allowStickersPanel && !isInPreviewMode() && (chatActivityEnterView == null || !chatActivityEnterView.isStickersExpanded()) ? View.VISIBLE : View.GONE);
-        // glassGram: "12*7=" in the field shows its result above it
-        glassgramCalcHint = new org.telegram.ui.Components.GlassgramCalcHint(context, contentView, chatActivityEnterView, themeDelegate);
-        contentView.addView(glassgramCalcHint, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP));
 
         final ChatActivityEnterTopView.EditView editView = new ChatActivityEnterTopView.EditView(context);
         editView.setMotionEventSplittingEnabled(false);

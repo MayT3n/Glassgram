@@ -148,8 +148,18 @@ public class GlassgramConfig {
     public static boolean hideShareButton;
     public static boolean showPollResults;
     public static boolean commaAfterMention;
-    // "12*7=" in the message field shows its result (GlassgramCalcHint)
-    public static boolean inputCalculator = true;
+    // Inline Results: after "=" the message field shows the result in gray (GlassgramInlineResults)
+    public static boolean inlineResults = true;
+    public static boolean inlineCalculator = true;
+    public static boolean inlineCurrencies = true;
+    public static boolean inlineUnits = true;
+    public static boolean inlineTimeZones;
+    public static boolean inlineGroupDigits = true;
+    public static boolean inlineRadians;
+    // "auto" (by the phone number) or a currency code
+    public static String inlineCurrency = "auto";
+    public static final int INLINE_MEASURE_AUTO = 0, INLINE_MEASURE_METRIC = 1, INLINE_MEASURE_IMPERIAL = 2;
+    public static int inlineMeasure = INLINE_MEASURE_AUTO;
     // a small avatar of the sender before the name in group messages
     public static boolean senderMiniAvatars;
     // a long press on a bot's inline button shows its text and callback_data (GlassgramButtonInfo)
@@ -359,7 +369,16 @@ public class GlassgramConfig {
         hideShareButton = p.getBoolean("hideShareButton", false);
         showPollResults = p.getBoolean("showPollResults", false);
         commaAfterMention = p.getBoolean("commaAfterMention", false);
-        inputCalculator = p.getBoolean("inputCalculator", true);
+        // the calculator in the field had its own switch before Inline Results
+        inlineResults = p.getBoolean("inlineResults", p.getBoolean("inputCalculator", true));
+        inlineCalculator = p.getBoolean("inlineCalculator", true);
+        inlineCurrencies = p.getBoolean("inlineCurrencies", true);
+        inlineUnits = p.getBoolean("inlineUnits", true);
+        inlineTimeZones = p.getBoolean("inlineTimeZones", false);
+        inlineGroupDigits = p.getBoolean("inlineGroupDigits", true);
+        inlineRadians = p.getBoolean("inlineRadians", false);
+        inlineCurrency = p.getString("inlineCurrency", "auto");
+        inlineMeasure = p.getInt("inlineMeasure", INLINE_MEASURE_AUTO);
         senderMiniAvatars = p.getBoolean("senderMiniAvatars", false);
         inlineButtonData = p.getBoolean("inlineButtonData", true);
         offlineTranscription = p.getBoolean("offlineTranscription", false);

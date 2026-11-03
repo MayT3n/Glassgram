@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- glassGram: Inline Results' time zones: a globe -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M3,12A9,9 0,1 0,21 12A9,9 0,1 0,3 12Z"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M12,3C8.6,6.2 8.6,17.8 12,21M12,3C15.4,6.2 15.4,17.8 12,21M3.4,9.3H20.6M3.4,14.7H20.6"
+        android:strokeWidth="1.4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+</vector>

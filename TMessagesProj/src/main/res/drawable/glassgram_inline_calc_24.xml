@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- glassGram: Inline Results' calculator -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M7.5,3H16.5A2.5,2.5 0,0 1,19 5.5V18.5A2.5,2.5 0,0 1,16.5 21H7.5A2.5,2.5 0,0 1,5 18.5V5.5A2.5,2.5 0,0 1,7.5 3Z"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M8.6,6.6H15.4V9.4H8.6Z"
+        android:strokeWidth="1.4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8,13a1.05,1.05 0,1 0,2.1 0a1.05,1.05 0,1 0,-2.1 0M10.95,13a1.05,1.05 0,1 0,2.1 0a1.05,1.05 0,1 0,-2.1 0M13.9,13a1.05,1.05 0,1 0,2.1 0a1.05,1.05 0,1 0,-2.1 0M8,16.8a1.05,1.05 0,1 0,2.1 0a1.05,1.05 0,1 0,-2.1 0M10.95,16.8a1.05,1.05 0,1 0,2.1 0a1.05,1.05 0,1 0,-2.1 0M13.9,16.8a1.05,1.05 0,1 0,2.1 0a1.05,1.05 0,1 0,-2.1 0" />
+</vector>

@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- glassGram: Inline Results' units of measure: a ruler -->
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:rotation="-45">
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M4.2,8H19.8A1.7,1.7 0,0 1,21.5 9.7V14.3A1.7,1.7 0,0 1,19.8 16H4.2A1.7,1.7 0,0 1,2.5 14.3V9.7A1.7,1.7 0,0 1,4.2 8Z"
+            android:strokeWidth="1.6"
+            android:strokeColor="#FFFFFF" />
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M6.5,8V10.8M9.5,8V11.8M12.5,8V10.8M15.5,8V11.8M18.5,8V10.8"
+            android:strokeWidth="1.4"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round" />
+    </group>
+</vector>
