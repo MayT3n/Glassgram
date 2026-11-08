@@ -339,6 +339,8 @@ public class ApplicationLoader extends Application {
             applicationContext = getApplicationContext();
         }
         GlassgramConfig.load();
+        // adaptive glass: blur radius follows the device's thermal status
+        org.telegram.liquidglass.GlassQuality.init(applicationContext);
         // the font chosen in glassGram's settings, before anything draws text
         GlassgramFonts.apply();
 

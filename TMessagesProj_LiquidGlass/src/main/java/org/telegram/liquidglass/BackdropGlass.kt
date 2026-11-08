@@ -124,10 +124,12 @@ class BackdropGlass {
         chromaticAberration: Boolean,
         dark: Boolean
     ): Boolean {
+        // Adaptive rendering: the blur radius shrinks only under real thermal pressure
+        val effectiveBlur = blurRadius * GlassQuality.blurScale
         if (built &&
             this.width == width && this.height == height &&
             this.radii.contentEquals(radii) && this.density == density &&
-            this.colorMode == colorMode && this.blurRadius == blurRadius &&
+            this.colorMode == colorMode && this.blurRadius == effectiveBlur &&
             this.lensHeight == lensHeight && this.lensAmount == lensAmount &&
             this.depthEffect == depthEffect && this.chromaticAberration == chromaticAberration &&
             this.dark == dark
@@ -139,7 +141,7 @@ class BackdropGlass {
         this.radii = radii.copyOf()
         this.density = density
         this.colorMode = colorMode
-        this.blurRadius = blurRadius
+        this.blurRadius = effectiveBlur
         this.lensHeight = lensHeight
         this.lensAmount = lensAmount
         this.depthEffect = depthEffect
@@ -164,8 +166,8 @@ class BackdropGlass {
                 COLOR_CONTROLS_LIGHT -> colorControls(brightness = -0.03f, contrast = 1.06f, saturation = 1.5f)
                 COLOR_VIBRANCY -> vibrancy()
             }
-            if (blurRadius > 0f) {
-                blur(blurRadius)
+            if (effectiveBlur > 0f) {
+                blur(effectiveBlur)
             }
             if (lensHeight > 0f && lensAmount > 0f) {
                 lens(lensHeight, lensAmount, depthEffect = depthEffect, chromaticAberration = chromaticAberration)
