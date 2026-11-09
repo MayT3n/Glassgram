@@ -293,9 +293,12 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
         super.setAlpha(alpha);
         renderNode.setAlpha(alpha / 255f);
-        renderNodeInvalidated = true;
 
+        // What is recorded does not depend on the alpha (the node applies it when drawn), so a
+        // fade does not record the glass for each of its frames. Only coming back from invisible,
+        // when the window behind may have changed unseen, records it anew
         if (oldAlpha == 0 && alpha > 0) {
+            renderNodeInvalidated = true;
             source.dispatchOnDrawablesRelativePositionChange();
         }
     }

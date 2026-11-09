@@ -49,6 +49,9 @@ public class LiquidGlassBackground extends Drawable {
 
     @Override
     public void setAlpha(int alpha) {
+        if (this.alpha == alpha) {
+            return;
+        }
         this.alpha = alpha;
         invalidateSelf();
     }
