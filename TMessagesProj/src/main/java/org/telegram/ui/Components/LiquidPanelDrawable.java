@@ -62,6 +62,7 @@ public class LiquidPanelDrawable extends Drawable {
 
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final ShadowLayerCache shadowLayer = new ShadowLayerCache();
     private final Path path = new Path();
     private final RectF rect = new RectF();
     private final float[] radii = new float[8];
@@ -239,7 +240,7 @@ public class LiquidPanelDrawable extends Drawable {
         // Shadow around the panel only, so it never shows through the glass
         final float shadow = AndroidUtilities.dpf2(12);
         shadowPaint.setColor(baseColor | 0xFF000000);
-        shadowPaint.setShadowLayer(shadow, 0, shadow / 4f, Color.argb((int) (0x40 * alpha / 255f), 0, 0, 0));
+        shadowLayer.set(shadowPaint, shadow, 0, shadow / 4f, Color.argb((int) (0x40 * alpha / 255f), 0, 0, 0));
         canvas.save();
         if (Build.VERSION.SDK_INT >= 26) {
             canvas.clipOutPath(path);

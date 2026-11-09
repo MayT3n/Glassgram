@@ -30,6 +30,7 @@ public class LiquidButtonBackground extends Drawable {
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final ShadowLayerCache shadowLayer = new ShadowLayerCache();
     private final RectF rect = new RectF();
     private final float[] radii = new float[4];
     private Object glass;
@@ -73,7 +74,7 @@ public class LiquidButtonBackground extends Drawable {
         // Shadow(radius = 12.dp, color = Black 10%), drawn only around the capsule.
         final float shadow = AndroidUtilities.dpf2(12);
         shadowPaint.setColor(fill);
-        shadowPaint.setShadowLayer(shadow, 0, shadow / 6f, ColorUtils.setAlphaComponent(0xFF000000, (int) (0x1A * alpha / 255f)));
+        shadowLayer.set(shadowPaint, shadow, 0, shadow / 6f, ColorUtils.setAlphaComponent(0xFF000000, (int) (0x1A * alpha / 255f)));
         canvas.drawRoundRect(rect, r, r, shadowPaint);
 
         paint.setColor(fill);

@@ -35,6 +35,7 @@ public class LiquidGlassButtonBackground extends Drawable {
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final ShadowLayerCache shadowLayer = new ShadowLayerCache();
     private final RectF rect = new RectF();
     private final float[] radii = new float[4];
     private Object glass;
@@ -103,7 +104,7 @@ public class LiquidGlassButtonBackground extends Drawable {
         if (t < 1f) {
             final float shadow = AndroidUtilities.dpf2(10);
             shadowPaint.setColor(fill);
-            shadowPaint.setShadowLayer(shadow, 0, shadow / 5f, ColorUtils.setAlphaComponent(0xFF000000, (int) (0x18 * (1f - t) * alpha / 255f)));
+            shadowLayer.set(shadowPaint, shadow, 0, shadow / 5f, ColorUtils.setAlphaComponent(0xFF000000, (int) (0x18 * (1f - t) * alpha / 255f)));
             canvas.drawRoundRect(rect, r, r, shadowPaint);
         }
         paint.setColor(fill);
@@ -142,7 +143,7 @@ public class LiquidGlassButtonBackground extends Drawable {
             // The shadow around the capsule only, so it does not darken the glass
             final float shadow = AndroidUtilities.dpf2(10);
             shadowPaint.setColor(0xFF000000);
-            shadowPaint.setShadowLayer(shadow, 0, shadow / 5f, ColorUtils.setAlphaComponent(0xFF000000, (int) (0x18 * (1f - t) * alpha / 255f)));
+            shadowLayer.set(shadowPaint, shadow, 0, shadow / 5f, ColorUtils.setAlphaComponent(0xFF000000, (int) (0x18 * (1f - t) * alpha / 255f)));
             clip.rewind();
             clip.addRoundRect(rect, r, r, Path.Direction.CW);
             canvas.save();
