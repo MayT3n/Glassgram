@@ -36,6 +36,8 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
     private final Paint paintStrokeBottom = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private boolean renderNodeInvalidated;
+    private int shadowPaintColor;
+    private float shadowPaintRadius = Float.NaN, shadowPaintDx, shadowPaintDy;
 
     public BlurredBackgroundDrawableRenderNode(BlurredBackgroundSource source) {
         this.renderNode = new RenderNode("BlurredNode");
@@ -246,6 +248,8 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
         super.updateColors();
 
         paintShadow.setShadowLayer(shadowLayerRadius, shadowLayerDx, shadowLayerDy, shadowColor);
+        // the paint no longer holds what draw() last set
+        shadowPaintRadius = Float.NaN;
         paintStrokeTop.setColor(strokeColorTop);
         paintStrokeBottom.setColor(strokeColorBottom);
 
@@ -273,7 +277,14 @@ public class BlurredBackgroundDrawableRenderNode extends BlurredBackgroundDrawab
 
         int color = Theme.multAlpha(shadowColor, renderNode.getAlpha() * shadowAlpha);
         if (Color.alpha(color) != 0) {
-            paintShadow.setShadowLayer(shadowLayerRadius, shadowLayerDx, shadowLayerDy, color);
+            if (color != shadowPaintColor || shadowLayerRadius != shadowPaintRadius || shadowLayerDx != shadowPaintDx || shadowLayerDy != shadowPaintDy) {
+                // each call makes a native looper: only when something changed
+                shadowPaintColor = color;
+                shadowPaintRadius = shadowLayerRadius;
+                shadowPaintDx = shadowLayerDx;
+                shadowPaintDy = shadowLayerDy;
+                paintShadow.setShadowLayer(shadowLayerRadius, shadowLayerDx, shadowLayerDy, color);
+            }
             boundProps.drawShadows(canvas, paintShadow, inAppKeyboardOptimization);
         }
 
