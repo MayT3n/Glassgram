@@ -144,6 +144,11 @@ public final class AnimatedFileDrawable extends BitmapDrawable implements Animat
     BitmapsCache.Metadata cacheMetadata;
 
     private static final ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(8, new ThreadPoolExecutor.DiscardPolicy());
+    static {
+        // idle threads end after 30 s instead of staying for the whole process
+        executor.setKeepAliveTime(30, java.util.concurrent.TimeUnit.SECONDS);
+        executor.allowCoreThreadTimeOut(true);
+    }
 
     private final Runnable uiRunnableNoFrame = this::uiRunnableNoFrameImpl;
 

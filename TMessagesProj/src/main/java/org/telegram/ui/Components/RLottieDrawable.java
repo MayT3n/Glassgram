@@ -129,8 +129,16 @@ public class RLottieDrawable extends BitmapDrawable implements Animatable, Bitma
 
     private static final AtomicInteger threadId = new AtomicInteger();
     private static final AtomicInteger threadId2 = new AtomicInteger();
-    private static final Executor loadFrameRunnableQueue = Executors.newFixedThreadPool(4, r -> new Thread(r, "Lottie-" + threadId.getAndIncrement()));
-    private static final Executor loadFrameRunnableQueueLimitFps = Executors.newFixedThreadPool(2, r -> new Thread(r, "LottieLow-" + threadId2.getAndIncrement()));
+    private static final Executor loadFrameRunnableQueue = idleTimeout(Executors.newFixedThreadPool(4, r -> new Thread(r, "Lottie-" + threadId.getAndIncrement())));
+    private static final Executor loadFrameRunnableQueueLimitFps = idleTimeout(Executors.newFixedThreadPool(2, r -> new Thread(r, "LottieLow-" + threadId2.getAndIncrement())));
+
+    /** Same pool, but its idle threads end after 30 s instead of keeping their stacks for the whole process. */
+    private static java.util.concurrent.ThreadPoolExecutor idleTimeout(java.util.concurrent.ExecutorService pool) {
+        final java.util.concurrent.ThreadPoolExecutor executor = (java.util.concurrent.ThreadPoolExecutor) pool;
+        executor.setKeepAliveTime(30, java.util.concurrent.TimeUnit.SECONDS);
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
+    }
 
     public static DispatchQueue lottieCacheGenerateQueue;
 
@@ -1288,13 +1296,18 @@ public class RLottieDrawable extends BitmapDrawable implements Animatable, Bitma
         }
         int framesPerUpdates = shouldLimitFps ? 2 : 1;
         int result = generateCacheNative.getFrame(generateCacheFramePointer, bitmap, true);
-        if (result == -5) {
+        // -5: the frame is not ready; asked again up to 50 times (5 s), then the cache stops
+        for (int tries = 0; result == -5 && tries < 50; tries++) {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
+                break;
             }
-            return getNextFrame(bitmap);
+            result = generateCacheNative.getFrame(generateCacheFramePointer, bitmap, true);
+        }
+        if (result == -5) {
+            return -1;
         }
         generateCacheFramePointer += framesPerUpdates;
         return 1;
