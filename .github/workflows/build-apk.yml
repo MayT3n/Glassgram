@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "perf/**" ]
     tags: [ "*" ]
     # The badges list is read by the app at runtime, and the bot and the branding are not in the
     # app: editing them needs no new APK
@@ -197,7 +197,8 @@ jobs:
           RELEASE_TAG: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
           FULL: ${{ github.event.inputs.full || 'false' }}
         run: |
-          VARIANT="${{ github.event.inputs.variant || 'release' }}"
+          # a branch other than master (the optimization work) builds the debug variant
+          VARIANT="${{ github.event.inputs.variant || ((github.ref_type == 'branch' && github.ref_name != 'master') && 'debug') || 'release' }}"
           if [ -n "$RELEASE_TAG" ] || [ "$FULL" = "true" ]; then
             FAST=false
           else
@@ -277,10 +278,18 @@ jobs:
           if [ "${{ steps.task.outputs.fast }}" = "true" ]; then
             FAST_ARG="-PGLASSGRAM_FAST=true"
           fi
+          set -o pipefail
           ./gradlew ${{ steps.task.outputs.task }} $VERSION_ARG $STORE_ARG $FAST_ARG -PGLASSGRAM_CCACHE=true \
             --no-daemon --stacktrace \
             -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
-            -Dorg.gradle.workers.max=4
+            -Dorg.gradle.workers.max=4 2>&1 | tee gradle.log
+
+      # The first compile errors of a failed build as annotations, readable without the full log
+      - name: Report build errors
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          [ -f gradle.log ] || exit 0
+          grep -h -A2 -E '^e: |error: |^FAILURE: |What went wrong|Execution failed|Could not (resolve|find)' gradle.log | grep -v '^--$' | head -n 40 | cut -c1-500 | tr -d '\r' | while IFS= read -r line; do echo "::error::$line"; done
 
       # R8 renames the code of full builds, and their crashes read like j1.x.f(r8-map-id-…:75). The
       # mapping goes to the "mappings" pre-release, named by the map id the traces carry, for
