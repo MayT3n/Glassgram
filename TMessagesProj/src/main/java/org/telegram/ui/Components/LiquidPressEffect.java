@@ -54,6 +54,11 @@ public class LiquidPressEffect {
     private float startX, startY, touchX, touchY;
 
     private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // The light spot's gradient, made again only when its size or color changes; the finger moves it by matrix
+    private RadialGradient glowGradient;
+    private float glowSpot;
+    private int glowColor;
+    private final android.graphics.Matrix glowMatrix = new android.graphics.Matrix();
     private final Path clip = new Path();
 
     // The library's LiquidButton, where there is one
@@ -546,7 +551,14 @@ public class LiquidPressEffect {
         final float x = Math.max(0, Math.min(width, touchX));
         final float y = Math.max(0, Math.min(height, touchY));
         final int color = Color.argb((int) (255 * 0.15f * Math.min(progress, 1f)), 255, 255, 255);
-        glowPaint.setShader(new RadialGradient(x, y, spot, new int[]{color, color, 0}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP));
+        if (glowGradient == null || glowSpot != spot || glowColor != color) {
+            glowGradient = new RadialGradient(0, 0, spot, new int[]{color, color, 0}, new float[]{0f, 0.5f, 1f}, Shader.TileMode.CLAMP);
+            glowSpot = spot;
+            glowColor = color;
+        }
+        glowMatrix.setTranslate(x, y);
+        glowGradient.setLocalMatrix(glowMatrix);
+        glowPaint.setShader(glowGradient);
         canvas.drawRect(0, 0, width, height, glowPaint);
         glowPaint.setShader(null);
         canvas.restore();
