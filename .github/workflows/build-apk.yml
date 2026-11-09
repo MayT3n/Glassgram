@@ -216,27 +216,44 @@ jobs:
           echo "task=$TASK" >> "$GITHUB_OUTPUT"
           echo "out=$OUT" >> "$GITHUB_OUTPUT"
 
-      # Own signing key from the repository secrets; without them the public key from the
-      # Telegram sources (TMessagesProj/config/release.keystore) is used
+      # The Telegram sources ship a public keystore (password "android"): anyone can sign with it,
+      # so it is never used. A release needs the key from the repository secrets; any other build
+      # is signed with a throwaway key made for this run only (installable, but not an upgrade path)
       - name: Use the release signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::warning::RELEASE_KEYSTORE_BASE64 is not set, signing with the public Telegram key"
+          KS=TMessagesProj/config/release.keystore
+          rm -f "$KS"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$KS"
+            keytool -list -keystore "$KS" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
+            echo "::add-mask::$STORE_PASSWORD"
+            {
+              echo "ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD=$STORE_PASSWORD"
+              echo "ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS=$KEY_ALIAS"
+              echo "ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD=${KEY_PASSWORD:-$STORE_PASSWORD}"
+            } >> "$GITHUB_ENV"
+            echo "Signing with the key from the repository secrets"
             exit 0
           fi
-          echo "$KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > TMessagesProj/config/release.keystore
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "::error::A release must be signed with your own persistent key: set the repository secrets RELEASE_KEYSTORE_BASE64, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS (and RELEASE_KEY_PASSWORD if it differs)."
+            exit 1
+          fi
+          PASS="$(openssl rand -hex 16)"
+          echo "::add-mask::$PASS"
+          keytool -genkeypair -keystore "$KS" -storepass "$PASS" -keypass "$PASS" -alias ci -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Glassgram CI build"
           {
-            echo "ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD=$STORE_PASSWORD"
-            echo "ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS=$KEY_ALIAS"
-            echo "ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD=${KEY_PASSWORD:-$STORE_PASSWORD}"
+            echo "ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD=$PASS"
+            echo "ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS=ci"
+            echo "ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD=$PASS"
           } >> "$GITHUB_ENV"
-          keytool -list -keystore TMessagesProj/config/release.keystore -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
-          echo "Signing with the key from the repository secrets"
+          echo "::warning::No signing secrets: signed with a throwaway key made for this run"
 
       - name: Build APK
         id: build
