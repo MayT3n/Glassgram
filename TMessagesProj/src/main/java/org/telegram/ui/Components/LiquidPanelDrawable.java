@@ -421,6 +421,11 @@ public class LiquidPanelDrawable extends Drawable {
             return;
         }
         liveDirty = true;
+        if (!h.isShown() || h.getAlpha() <= 0f) {
+            // Not on screen: the host is not redrawn for each frame behind it. It draws from
+            // liveDirty, set above, when it shows
+            return;
+        }
         h.postInvalidateOnAnimation();
     }
 
