@@ -1781,16 +1781,18 @@ public class Theme {
 
                 //override default themes
                 if (isHome(themeAccent) && name.equals("Dark Blue") || name.equals("Night")) {
-                    themeAccent.myMessagesAccentColor = 0xff258DE5;
-                    themeAccent.myMessagesGradientAccentColor1 = 0xff4272DF;
-                    themeAccent.myMessagesGradientAccentColor2 = 0xff8146D7;
-                    themeAccent.myMessagesGradientAccentColor3 = 0xff9F3EAA;
+                    // Telegram on iOS: outgoing messages in a plain blue, not Android's blue-to-purple
+                    themeAccent.myMessagesAccentColor = 0xff3E93F8;
+                    themeAccent.myMessagesGradientAccentColor1 = 0xff1F6EE8;
+                    themeAccent.myMessagesGradientAccentColor2 = 0;
+                    themeAccent.myMessagesGradientAccentColor3 = 0;
                     if (name.equals("Night")) {
                         themeAccent.patternIntensity = -0.57f;
-                        themeAccent.backgroundOverrideColor = 0xff6c7fa6;
-                        themeAccent.backgroundGradientOverrideColor1 = 0xff2e344b;
-                        themeAccent.backgroundGradientOverrideColor2 = 0xff7874a7;
-                        themeAccent.backgroundGradientOverrideColor3 = 0xff333258;
+                        // a deep neutral navy like iOS's night chat, instead of the violet mesh
+                        themeAccent.backgroundOverrideColor = 0xff101722;
+                        themeAccent.backgroundGradientOverrideColor1 = 0xff0A0E16;
+                        themeAccent.backgroundGradientOverrideColor2 = 0xff1B2538;
+                        themeAccent.backgroundGradientOverrideColor3 = 0xff0D121C;
                     }
                 }
                 themeAccentsMap.put(themeAccent.id, themeAccent);
