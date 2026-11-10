@@ -26,7 +26,8 @@ repositories {
 // to compile the native code through ccache.
 ext.glassgramFast = (findProperty("GLASSGRAM_FAST") ?: "false").toString() == "true"
 ext.glassgramCcache = (findProperty("GLASSGRAM_CCACHE") ?: "false").toString() == "true"
-ext.glassgramAbis = ext.glassgramFast ? ["arm64-v8a"] : ["armeabi-v7a", "arm64-v8a"]
+ext.glassgramArm64 = (findProperty("GLASSGRAM_ARM64") ?: "false").toString() == "true"
+ext.glassgramAbis = (ext.glassgramFast || ext.glassgramArm64) ? ["arm64-v8a"] : ["armeabi-v7a", "arm64-v8a"]
 
 // Strip JLatexMath fonts we don't ship (transitive AAR assets from
 // io.noties.markwon:ext-latex -> ru.noties:jlatexmath-android, ~764 KB total under

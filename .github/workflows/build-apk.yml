@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ "master", "perf/**" ]
+    branches: [ "master", "perf/**", "apk/**" ]
     tags: [ "*" ]
     # The badges list is read by the app at runtime, and the bot and the branding are not in the
     # app: editing them needs no new APK
@@ -198,8 +198,12 @@ jobs:
           FULL: ${{ github.event.inputs.full || 'false' }}
         run: |
           # a branch other than master (the optimization work) builds the debug variant
-          VARIANT="${{ github.event.inputs.variant || ((github.ref_type == 'branch' && github.ref_name != 'master') && 'debug') || 'release' }}"
-          if [ -n "$RELEASE_TAG" ] || [ "$FULL" = "true" ]; then
+          VARIANT="${{ github.event.inputs.variant || ((github.ref_type == 'branch' && github.ref_name != 'master' && !startsWith(github.ref_name, 'apk/')) && 'debug') || 'release' }}"
+          # a branch apk/*: the release variant with R8 for arm64-v8a only, the small APK for a modern phone
+          ARM64=false
+          case "${{ github.ref_name }}" in apk/*) ARM64=true ;; esac
+          echo "arm64=$ARM64" >> "$GITHUB_OUTPUT"
+          if [ -n "$RELEASE_TAG" ] || [ "$FULL" = "true" ] || [ "$ARM64" = "true" ]; then
             FAST=false
           else
             FAST=true
@@ -278,6 +282,9 @@ jobs:
           if [ "${{ steps.task.outputs.fast }}" = "true" ]; then
             FAST_ARG="-PGLASSGRAM_FAST=true"
           fi
+          if [ "${{ steps.task.outputs.arm64 }}" = "true" ]; then
+            FAST_ARG="$FAST_ARG -PGLASSGRAM_ARM64=true"
+          fi
           set -o pipefail
           ./gradlew ${{ steps.task.outputs.task }} $VERSION_ARG $STORE_ARG $FAST_ARG -PGLASSGRAM_CCACHE=true \
             --no-daemon --stacktrace \
@@ -295,7 +302,7 @@ jobs:
       # mapping goes to the "mappings" pre-release, named by the map id the traces carry, for
       # glassGram's bot to read crashes back into the source's names (glassgram-bot/retrace.py)
       - name: Publish the R8 mapping
-        if: steps.task.outputs.fast == 'false' && github.event_name != 'pull_request'
+        if: steps.task.outputs.fast == 'false' && steps.task.outputs.arm64 != 'true' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
