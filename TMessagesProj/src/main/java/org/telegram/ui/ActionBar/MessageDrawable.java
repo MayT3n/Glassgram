@@ -689,6 +689,56 @@ public class MessageDrawable extends Drawable {
         return path;
     }
 
+
+    // iOS draws its bubble corners "continuous": the curvature grows and fades out gradually along the
+    // straight edges instead of jumping from 0 to 1/r where a circular arc meets the line. The corner
+    // keeps the endpoints of the circular arc it replaces (so lines, hit areas and the selector mask do
+    // not move) and is built like Figma's "corner smoothing": cubic, a short circular arc, cubic.
+    private static final float CORNER_SMOOTHING = 0.45f;
+    private static final double SMOOTH_ARC_DEG = 90 * (1 - CORNER_SMOOTHING);
+    private static final double SMOOTH_BETA = Math.toRadians(45 * CORNER_SMOOTHING);
+
+    private static void smoothCorner(Path path, RectF rect, int startAngle, int sweep) {
+        final float r = rect.width() / 2f;
+        if (r < dp(3)) {
+            path.arcTo(rect, startAngle, sweep, false);
+            return;
+        }
+        final float cx = rect.centerX(), cy = rect.centerY();
+        final double a0 = Math.toRadians(startAngle), a1 = Math.toRadians(startAngle + sweep);
+        final float sx = cx + r * (float) Math.cos(a0), sy = cy + r * (float) Math.sin(a0);
+        final float ex = cx + r * (float) Math.cos(a1), ey = cy + r * (float) Math.sin(a1);
+        final float vx = sx + ex - cx, vy = sy + ey - cy;
+        // u: along the edge into the corner, w: along the edge out of it
+        final float ux = (vx - sx) / r, uy = (vy - sy) / r, wx = (ex - vx) / r, wy = (ey - vy) / r;
+
+        final float p = r;
+        final float R = p / (1 + CORNER_SMOOTHING);
+        final double alpha = (Math.toRadians(90) - Math.toRadians(SMOOTH_ARC_DEG)) / 2;
+        final float c = (float) (R * Math.tan(alpha / 2) * Math.cos(SMOOTH_BETA));
+        final float d = (float) (c * Math.tan(SMOOTH_BETA));
+        final float arcSection = (float) (Math.sin(Math.toRadians(SMOOTH_ARC_DEG) / 2) * R * Math.sqrt(2));
+        final float b = (p - arcSection - c - d) / 3f;
+        final float a = 2 * b;
+        final float h = (float) (4.0 / 3.0 * Math.tan(Math.toRadians(SMOOTH_ARC_DEG) / 4) * R);
+        final float cb = (float) Math.cos(SMOOTH_BETA), sb = (float) Math.sin(SMOOTH_BETA);
+
+        // local (x along u, y along w) -> screen, origin at the arc's start
+        path.cubicTo(
+                sx + ux * a, sy + uy * a,
+                sx + ux * (a + b), sy + uy * (a + b),
+                sx + ux * (a + b + c) + wx * d, sy + uy * (a + b + c) + wy * d);
+        final float s2x = a + b + c, s2y = d, e2x = p - d, e2y = p - a - b - c;
+        path.cubicTo(
+                sx + ux * (s2x + h * cb) + wx * (s2y + h * sb), sy + uy * (s2x + h * cb) + wy * (s2y + h * sb),
+                sx + ux * (e2x - h * sb) + wx * (e2y - h * cb), sy + uy * (e2x - h * sb) + wy * (e2y - h * cb),
+                sx + ux * e2x + wx * e2y, sy + uy * e2x + wy * e2y);
+        path.cubicTo(
+                sx + ux * p + wx * (p - a - b), sy + uy * p + wy * (p - a - b),
+                sx + ux * p + wx * (p - a), sy + uy * p + wy * (p - a),
+                ex, ey);
+    }
+
     private void generatePath(Path path, Rect bounds, int padding, int rad, int smallRad, int nearRad, int top, boolean drawFullBottom, boolean drawFullTop, boolean customPaint) {
         path.rewind();
         int heightHalf = (bounds.height() - padding) >> 1;
@@ -711,7 +761,7 @@ public class MessageDrawable extends Drawable {
                 }
                 path.lineTo(bounds.left + padding + radToUse, bounds.bottom - padding);
                 rect.set(bounds.left + padding, bounds.bottom - padding - radToUse * 2, bounds.left + padding + radToUse * 2, bounds.bottom - padding);
-                path.arcTo(rect, 90, 90, false);
+                smoothCorner(path, rect, 90, 90);
             } else {
                 path.moveTo(bounds.right - dp(8), top - topY + currentBackgroundHeight);
                 path.lineTo(bounds.left + padding, top - topY + currentBackgroundHeight);
@@ -720,7 +770,7 @@ public class MessageDrawable extends Drawable {
                 // LEFT-BOTTOM -> LEFT-TOP
                 path.lineTo(bounds.left + padding, bounds.top + padding + rad);
                 rect.set(bounds.left + padding, bounds.top + padding, bounds.left + padding + rad * 2, bounds.top + padding + rad * 2);
-                path.arcTo(rect, 180, 90, false);
+                smoothCorner(path, rect, 180, 90);
 
                 // LEFT-TOP -> RIGHT-TOP
                 int radToUse = isTopNear ? nearRad : rad;
@@ -731,7 +781,7 @@ public class MessageDrawable extends Drawable {
                     path.lineTo(bounds.right - dp(8) - radToUse, bounds.top + padding);
                     rect.set(bounds.right - dp(8) - radToUse * 2, bounds.top + padding, bounds.right - dp(8), bounds.top + padding + radToUse * 2);
                 }
-                path.arcTo(rect, 270, 90, false);
+                smoothCorner(path, rect, 270, 90);
             } else {
                 // LEFT-BOTTOM -> LEFT-TOP
                 path.lineTo(bounds.left + padding, top - topY - dp(2));
@@ -750,7 +800,7 @@ public class MessageDrawable extends Drawable {
 
                     path.lineTo(bounds.right - padding, bounds.bottom - padding - radToUse);
                     rect.set(bounds.right - padding - radToUse * 2, bounds.bottom - padding - radToUse * 2, bounds.right - padding, bounds.bottom - padding);
-                    path.arcTo(rect, 0, 90, false);
+                    smoothCorner(path, rect, 0, 90);
                 } else {
                     path.lineTo(bounds.right - padding, top - topY + currentBackgroundHeight);
                 }
@@ -758,7 +808,7 @@ public class MessageDrawable extends Drawable {
                 if (noTail && (drawFullBubble || customPaint || drawFullBottom)) {
                     path.lineTo(bounds.right - dp(8), bounds.bottom - padding - tailRad);
                     rect.set(bounds.right - dp(8) - tailRad * 2, bounds.bottom - padding - tailRad * 2, bounds.right - dp(8), bounds.bottom - padding);
-                    path.arcTo(rect, 0, 90, false);
+                    smoothCorner(path, rect, 0, 90);
                 } else if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullBottom) {
                     path.lineTo(bounds.right - dp(8), bounds.bottom - padding - smallRad - dp(3));
                     rect.set(bounds.right - dp(8), bounds.bottom - padding - smallRad * 2 - dp(9), bounds.right - dp(7) + smallRad * 2, bounds.bottom - padding - dp(1));
@@ -780,7 +830,7 @@ public class MessageDrawable extends Drawable {
                 }
                 path.lineTo(bounds.right - padding - radToUse, bounds.bottom - padding);
                 rect.set(bounds.right - padding - radToUse * 2, bounds.bottom - padding - radToUse * 2, bounds.right - padding, bounds.bottom - padding);
-                path.arcTo(rect, 90, -90, false);
+                smoothCorner(path, rect, 90, -90);
             } else {
                 path.moveTo(bounds.left + dp(8), top - topY + currentBackgroundHeight);
                 path.lineTo(bounds.right - padding, top - topY + currentBackgroundHeight);
@@ -788,7 +838,7 @@ public class MessageDrawable extends Drawable {
             if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullTop) {
                 path.lineTo(bounds.right - padding, bounds.top + padding + rad);
                 rect.set(bounds.right - padding - rad * 2, bounds.top + padding, bounds.right - padding, bounds.top + padding + rad * 2);
-                path.arcTo(rect, 0, -90, false);
+                smoothCorner(path, rect, 0, -90);
 
                 int radToUse = isTopNear ? nearRad : rad;
                 if (currentType == TYPE_MEDIA) {
@@ -798,7 +848,7 @@ public class MessageDrawable extends Drawable {
                     path.lineTo(bounds.left + dp(8) + radToUse, bounds.top + padding);
                     rect.set(bounds.left + dp(8), bounds.top + padding, bounds.left + dp(8) + radToUse * 2, bounds.top + padding + radToUse * 2);
                 }
-                path.arcTo(rect, 270, -90, false);
+                smoothCorner(path, rect, 270, -90);
             } else {
                 path.lineTo(bounds.right - padding, top - topY - dp(2));
                 if (currentType == TYPE_MEDIA) {
@@ -813,7 +863,7 @@ public class MessageDrawable extends Drawable {
 
                     path.lineTo(bounds.left + padding, bounds.bottom - padding - radToUse);
                     rect.set(bounds.left + padding, bounds.bottom - padding - radToUse * 2, bounds.left + padding + radToUse * 2, bounds.bottom - padding);
-                    path.arcTo(rect, 180, -90, false);
+                    smoothCorner(path, rect, 180, -90);
                 } else {
                     path.lineTo(bounds.left + padding, top - topY + currentBackgroundHeight);
                 }
@@ -821,7 +871,7 @@ public class MessageDrawable extends Drawable {
                 if (noTail && (drawFullBubble || customPaint || drawFullBottom)) {
                     path.lineTo(bounds.left + dp(8), bounds.bottom - padding - tailRad);
                     rect.set(bounds.left + dp(8), bounds.bottom - padding - tailRad * 2, bounds.left + dp(8) + tailRad * 2, bounds.bottom - padding);
-                    path.arcTo(rect, 180, -90, false);
+                    smoothCorner(path, rect, 180, -90);
                 } else if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullBottom) {
                     path.lineTo(bounds.left + dp(8), bounds.bottom - padding - smallRad - dp(3));
                     rect.set(bounds.left + dp(7) - smallRad * 2, bounds.bottom - padding - smallRad * 2 - dp(9), bounds.left + dp(8), bounds.bottom - padding - dp(1));
