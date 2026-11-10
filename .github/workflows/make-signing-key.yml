@@ -1,0 +1,51 @@
+name: Make signing key
+
+# Run once, by hand (Actions > Make signing key > Run workflow). It makes the signing key of the APKs
+# and leaves it, with the four secret values, in a DRAFT release: a draft is seen only by people
+# who can push to the repository, while the logs and the artifacts of a public repository are public
+# and get nothing of the key. Paste the four values into Settings > Secrets and variables > Actions,
+# then delete the draft release. Keep a copy of the values: a key that is lost cannot be made again,
+# and an APK signed with another key does not install over this one.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make the key and the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          PASS="$(openssl rand -hex 20)"
+          ALIAS=glassgram
+          keytool -genkeypair -keystore key.jks -storepass "$PASS" -keypass "$PASS" -alias "$ALIAS" \
+            -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Glassgram, O=Glassgram" > /dev/null 2>&1
+          {
+            echo "Four secrets (Settings > Secrets and variables > Actions > New repository secret):"
+            echo
+            echo "RELEASE_STORE_PASSWORD"
+            echo "$PASS"
+            echo
+            echo "RELEASE_KEY_ALIAS"
+            echo "$ALIAS"
+            echo
+            echo "RELEASE_KEY_PASSWORD"
+            echo "$PASS"
+            echo
+            echo "RELEASE_KEYSTORE_BASE64 (all of the next line)"
+            base64 -w0 key.jks
+            echo
+            echo
+            echo "Then delete this draft release."
+          } > notes.txt
+          gh release create "signing-key-$(date +%s)" --draft --title "Signing key (delete after use)" \
+            --notes-file notes.txt --repo "$GITHUB_REPOSITORY" > /dev/null
+          shred -u key.jks notes.txt 2>/dev/null || rm -f key.jks notes.txt
+          echo "The key is in a draft release of this repository."

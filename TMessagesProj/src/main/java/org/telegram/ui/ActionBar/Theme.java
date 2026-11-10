@@ -1772,6 +1772,13 @@ public class Theme {
                     themeAccent.patternSlug = patternSlugs[a];
                 }
 
+                // The light default themes: outgoing messages in the blue gradient of Telegram on iOS (white text
+                // and the rest of the outgoing colors follow from it); a theme or accent the person picked is left alone
+                if (isHome(themeAccent) && ("Day".equals(name) || "Blue".equals(name))) {
+                    themeAccent.myMessagesAccentColor = 0xff4A9FF8;
+                    themeAccent.myMessagesGradientAccentColor1 = 0xff1C7CEE;
+                }
+
                 //override default themes
                 if (isHome(themeAccent) && name.equals("Dark Blue") || name.equals("Night")) {
                     themeAccent.myMessagesAccentColor = 0xff258DE5;
