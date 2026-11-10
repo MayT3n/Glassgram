@@ -700,7 +700,7 @@ public class MessageDrawable extends Drawable {
 
     private static void smoothCorner(Path path, RectF rect, int startAngle, int sweep) {
         final float r = rect.width() / 2f;
-        if (r < dp(3)) {
+        if (r < AndroidUtilities.dp(3)) {
             path.arcTo(rect, startAngle, sweep, false);
             return;
         }
