@@ -741,6 +741,8 @@ public class MessageDrawable extends Drawable {
 
     private void generatePath(Path path, Rect bounds, int padding, int rad, int smallRad, int nearRad, int top, boolean drawFullBottom, boolean drawFullTop, boolean customPaint) {
         path.rewind();
+        // Bubbles of one sender sit closer, as on iOS: 1dp of air next to a neighbour instead of 2dp
+        final int padTop = isTopNear ? dp(1) : padding, padBottom = isBottomNear ? dp(1) : padding;
         int heightHalf = (bounds.height() - padding) >> 1;
         if (rad > heightHalf) {
             rad = heightHalf;
@@ -753,14 +755,14 @@ public class MessageDrawable extends Drawable {
             if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullBottom) {
                 int radToUse = botButtonsBottom ? nearRad : rad;
                 if (currentType == TYPE_MEDIA) {
-                    path.moveTo(bounds.right - dp(8) - radToUse, bounds.bottom - padding);
+                    path.moveTo(bounds.right - dp(8) - radToUse, bounds.bottom - padBottom);
                 } else if (noTail) {
-                    path.moveTo(bounds.right - dp(8) - tailRad, bounds.bottom - padding);
+                    path.moveTo(bounds.right - dp(8) - tailRad, bounds.bottom - padBottom);
                 } else {
-                    path.moveTo(bounds.right - dp(2.6f), bounds.bottom - padding);
+                    path.moveTo(bounds.right - dp(2.6f), bounds.bottom - padBottom);
                 }
-                path.lineTo(bounds.left + padding + radToUse, bounds.bottom - padding);
-                rect.set(bounds.left + padding, bounds.bottom - padding - radToUse * 2, bounds.left + padding + radToUse * 2, bounds.bottom - padding);
+                path.lineTo(bounds.left + padding + radToUse, bounds.bottom - padBottom);
+                rect.set(bounds.left + padding, bounds.bottom - padBottom - radToUse * 2, bounds.left + padding + radToUse * 2, bounds.bottom - padBottom);
                 smoothCorner(path, rect, 90, 90);
             } else {
                 path.moveTo(bounds.right - dp(8), top - topY + currentBackgroundHeight);
@@ -768,18 +770,18 @@ public class MessageDrawable extends Drawable {
             }
             if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullTop) {
                 // LEFT-BOTTOM -> LEFT-TOP
-                path.lineTo(bounds.left + padding, bounds.top + padding + rad);
-                rect.set(bounds.left + padding, bounds.top + padding, bounds.left + padding + rad * 2, bounds.top + padding + rad * 2);
+                path.lineTo(bounds.left + padding, bounds.top + padTop + rad);
+                rect.set(bounds.left + padding, bounds.top + padTop, bounds.left + padding + rad * 2, bounds.top + padTop + rad * 2);
                 smoothCorner(path, rect, 180, 90);
 
                 // LEFT-TOP -> RIGHT-TOP
                 int radToUse = isTopNear ? nearRad : rad;
                 if (currentType == TYPE_MEDIA) {
-                    path.lineTo(bounds.right - padding - radToUse, bounds.top + padding);
-                    rect.set(bounds.right - padding - radToUse * 2, bounds.top + padding, bounds.right - padding, bounds.top + padding + radToUse * 2);
+                    path.lineTo(bounds.right - padding - radToUse, bounds.top + padTop);
+                    rect.set(bounds.right - padding - radToUse * 2, bounds.top + padTop, bounds.right - padding, bounds.top + padTop + radToUse * 2);
                 } else {
-                    path.lineTo(bounds.right - dp(8) - radToUse, bounds.top + padding);
-                    rect.set(bounds.right - dp(8) - radToUse * 2, bounds.top + padding, bounds.right - dp(8), bounds.top + padding + radToUse * 2);
+                    path.lineTo(bounds.right - dp(8) - radToUse, bounds.top + padTop);
+                    rect.set(bounds.right - dp(8) - radToUse * 2, bounds.top + padTop, bounds.right - dp(8), bounds.top + padTop + radToUse * 2);
                 }
                 smoothCorner(path, rect, 270, 90);
             } else {
@@ -798,20 +800,20 @@ public class MessageDrawable extends Drawable {
                 if (customPaint || drawFullBottom) {
                     int radToUse = isBottomNear ? nearRad : rad;
 
-                    path.lineTo(bounds.right - padding, bounds.bottom - padding - radToUse);
-                    rect.set(bounds.right - padding - radToUse * 2, bounds.bottom - padding - radToUse * 2, bounds.right - padding, bounds.bottom - padding);
+                    path.lineTo(bounds.right - padding, bounds.bottom - padBottom - radToUse);
+                    rect.set(bounds.right - padding - radToUse * 2, bounds.bottom - padBottom - radToUse * 2, bounds.right - padding, bounds.bottom - padBottom);
                     smoothCorner(path, rect, 0, 90);
                 } else {
                     path.lineTo(bounds.right - padding, top - topY + currentBackgroundHeight);
                 }
             } else {
                 if (noTail && (drawFullBubble || customPaint || drawFullBottom)) {
-                    path.lineTo(bounds.right - dp(8), bounds.bottom - padding - tailRad);
-                    rect.set(bounds.right - dp(8) - tailRad * 2, bounds.bottom - padding - tailRad * 2, bounds.right - dp(8), bounds.bottom - padding);
+                    path.lineTo(bounds.right - dp(8), bounds.bottom - padBottom - tailRad);
+                    rect.set(bounds.right - dp(8) - tailRad * 2, bounds.bottom - padBottom - tailRad * 2, bounds.right - dp(8), bounds.bottom - padBottom);
                     smoothCorner(path, rect, 0, 90);
                 } else if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullBottom) {
-                    path.lineTo(bounds.right - dp(8), bounds.bottom - padding - smallRad - dp(3));
-                    rect.set(bounds.right - dp(8), bounds.bottom - padding - smallRad * 2 - dp(9), bounds.right - dp(7) + smallRad * 2, bounds.bottom - padding - dp(1));
+                    path.lineTo(bounds.right - dp(8), bounds.bottom - padBottom - smallRad - dp(3));
+                    rect.set(bounds.right - dp(8), bounds.bottom - padBottom - smallRad * 2 - dp(9), bounds.right - dp(7) + smallRad * 2, bounds.bottom - padBottom - dp(1));
                     path.arcTo(rect, 180, -83, false);
                 } else {
                     path.lineTo(bounds.right - dp(8), top - topY + currentBackgroundHeight);
@@ -822,31 +824,31 @@ public class MessageDrawable extends Drawable {
                 int radToUse = botButtonsBottom ? nearRad : rad;
 
                 if (currentType == TYPE_MEDIA) {
-                    path.moveTo(bounds.left + dp(8) + radToUse, bounds.bottom - padding);
+                    path.moveTo(bounds.left + dp(8) + radToUse, bounds.bottom - padBottom);
                 } else if (noTail) {
-                    path.moveTo(bounds.left + dp(8) + tailRad, bounds.bottom - padding);
+                    path.moveTo(bounds.left + dp(8) + tailRad, bounds.bottom - padBottom);
                 } else {
-                    path.moveTo(bounds.left + dp(2.6f), bounds.bottom - padding);
+                    path.moveTo(bounds.left + dp(2.6f), bounds.bottom - padBottom);
                 }
-                path.lineTo(bounds.right - padding - radToUse, bounds.bottom - padding);
-                rect.set(bounds.right - padding - radToUse * 2, bounds.bottom - padding - radToUse * 2, bounds.right - padding, bounds.bottom - padding);
+                path.lineTo(bounds.right - padding - radToUse, bounds.bottom - padBottom);
+                rect.set(bounds.right - padding - radToUse * 2, bounds.bottom - padBottom - radToUse * 2, bounds.right - padding, bounds.bottom - padBottom);
                 smoothCorner(path, rect, 90, -90);
             } else {
                 path.moveTo(bounds.left + dp(8), top - topY + currentBackgroundHeight);
                 path.lineTo(bounds.right - padding, top - topY + currentBackgroundHeight);
             }
             if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullTop) {
-                path.lineTo(bounds.right - padding, bounds.top + padding + rad);
-                rect.set(bounds.right - padding - rad * 2, bounds.top + padding, bounds.right - padding, bounds.top + padding + rad * 2);
+                path.lineTo(bounds.right - padding, bounds.top + padTop + rad);
+                rect.set(bounds.right - padding - rad * 2, bounds.top + padTop, bounds.right - padding, bounds.top + padTop + rad * 2);
                 smoothCorner(path, rect, 0, -90);
 
                 int radToUse = isTopNear ? nearRad : rad;
                 if (currentType == TYPE_MEDIA) {
-                    path.lineTo(bounds.left + padding + radToUse, bounds.top + padding);
-                    rect.set(bounds.left + padding, bounds.top + padding, bounds.left + padding + radToUse * 2, bounds.top + padding + radToUse * 2);
+                    path.lineTo(bounds.left + padding + radToUse, bounds.top + padTop);
+                    rect.set(bounds.left + padding, bounds.top + padTop, bounds.left + padding + radToUse * 2, bounds.top + padTop + radToUse * 2);
                 } else {
-                    path.lineTo(bounds.left + dp(8) + radToUse, bounds.top + padding);
-                    rect.set(bounds.left + dp(8), bounds.top + padding, bounds.left + dp(8) + radToUse * 2, bounds.top + padding + radToUse * 2);
+                    path.lineTo(bounds.left + dp(8) + radToUse, bounds.top + padTop);
+                    rect.set(bounds.left + dp(8), bounds.top + padTop, bounds.left + dp(8) + radToUse * 2, bounds.top + padTop + radToUse * 2);
                 }
                 smoothCorner(path, rect, 270, -90);
             } else {
@@ -861,20 +863,20 @@ public class MessageDrawable extends Drawable {
                 if (customPaint || drawFullBottom) {
                     int radToUse = isBottomNear || botButtonsBottom ? nearRad : rad;
 
-                    path.lineTo(bounds.left + padding, bounds.bottom - padding - radToUse);
-                    rect.set(bounds.left + padding, bounds.bottom - padding - radToUse * 2, bounds.left + padding + radToUse * 2, bounds.bottom - padding);
+                    path.lineTo(bounds.left + padding, bounds.bottom - padBottom - radToUse);
+                    rect.set(bounds.left + padding, bounds.bottom - padBottom - radToUse * 2, bounds.left + padding + radToUse * 2, bounds.bottom - padBottom);
                     smoothCorner(path, rect, 180, -90);
                 } else {
                     path.lineTo(bounds.left + padding, top - topY + currentBackgroundHeight);
                 }
             } else {
                 if (noTail && (drawFullBubble || customPaint || drawFullBottom)) {
-                    path.lineTo(bounds.left + dp(8), bounds.bottom - padding - tailRad);
-                    rect.set(bounds.left + dp(8), bounds.bottom - padding - tailRad * 2, bounds.left + dp(8) + tailRad * 2, bounds.bottom - padding);
+                    path.lineTo(bounds.left + dp(8), bounds.bottom - padBottom - tailRad);
+                    rect.set(bounds.left + dp(8), bounds.bottom - padBottom - tailRad * 2, bounds.left + dp(8) + tailRad * 2, bounds.bottom - padBottom);
                     smoothCorner(path, rect, 180, -90);
                 } else if (drawFullBubble || currentType == TYPE_PREVIEW || customPaint || drawFullBottom) {
-                    path.lineTo(bounds.left + dp(8), bounds.bottom - padding - smallRad - dp(3));
-                    rect.set(bounds.left + dp(7) - smallRad * 2, bounds.bottom - padding - smallRad * 2 - dp(9), bounds.left + dp(8), bounds.bottom - padding - dp(1));
+                    path.lineTo(bounds.left + dp(8), bounds.bottom - padBottom - smallRad - dp(3));
+                    rect.set(bounds.left + dp(7) - smallRad * 2, bounds.bottom - padBottom - smallRad * 2 - dp(9), bounds.left + dp(8), bounds.bottom - padBottom - dp(1));
                     path.arcTo(rect, 0, 83, false);
                 } else {
                     path.lineTo(bounds.left + dp(8), top - topY + currentBackgroundHeight);
