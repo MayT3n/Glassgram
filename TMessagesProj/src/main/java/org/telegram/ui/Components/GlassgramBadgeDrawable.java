@@ -118,7 +118,11 @@ public class GlassgramBadgeDrawable extends Drawable {
      * light theme draws the name white, the badge is white with the glyph cut out.
      */
     private static boolean isCutout(int nameColor) {
-        return !Theme.isCurrentThemeDark() && !isColored(nameColor) && AndroidUtilities.computePerceivedBrightness(nameColor) > 0.75f;
+        return isCutout(nameColor, isColored(nameColor));
+    }
+
+    private static boolean isCutout(int nameColor, boolean colored) {
+        return !Theme.isCurrentThemeDark() && !colored && AndroidUtilities.computePerceivedBrightness(nameColor) > 0.75f;
     }
 
     private static boolean isColored(int color) {
@@ -127,21 +131,26 @@ public class GlassgramBadgeDrawable extends Drawable {
         return hsv[1] > 0.25f && hsv[2] > 0.2f;
     }
 
-    private static int fillColor(int nameColor) {
-        if (isColored(nameColor) || isCutout(nameColor)) {
+    private static int fillColor(int nameColor, boolean colored, boolean cutout) {
+        if (colored || cutout) {
             return nameColor;
         }
         return Theme.getColor(Theme.key_chats_verifiedBackground);
     }
 
     private final Paint cutoutPaint = new Paint();
+    {
+        cutoutPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
+    }
     private boolean lastCutout;
 
     /** Draws the badge of badgeSize at left, top, next to a name in nameColor. */
     public void draw(Canvas canvas, int left, int top, int badgeSize, int nameColor) {
         nameColor |= 0xFF000000;
-        final boolean cutout = isCutout(nameColor);
-        final int color = fillColor(nameColor) | 0xFF000000;
+        // the HSV test (an array and a conversion) once per draw, not three times
+        final boolean colored = isColored(nameColor);
+        final boolean cutout = isCutout(nameColor, colored);
+        final int color = fillColor(nameColor, colored, cutout) | 0xFF000000;
         final int glyphColor = Theme.getColor(Theme.key_chats_verifiedCheck) | 0xFF000000;
         if (color != lastColor || cutout != lastCutout || glyphColor != lastGlyphColor) {
             lastColor = color;
@@ -162,7 +171,6 @@ public class GlassgramBadgeDrawable extends Drawable {
             canvas.restoreToCount(layer);
         } else if (cutout) {
             // A white rosette with the glyph showing the cover through it
-            cutoutPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
             final int layer = canvas.saveLayer(left, top, left + badgeSize, top + badgeSize, null);
             shape.draw(canvas);
             canvas.saveLayer(left, top, left + badgeSize, top + badgeSize, cutoutPaint);

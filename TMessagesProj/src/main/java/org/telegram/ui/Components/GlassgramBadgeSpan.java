@@ -66,15 +66,22 @@ public class GlassgramBadgeSpan extends ReplacementSpan {
         badge.draw(canvas, (int) x, centerY - badgeSize / 2, badgeSize, paint.getColor());
     }
 
+    private final ArrayList<View> scratch = new ArrayList<>();
+
     private void invalidateHosts() {
         if (hosts.isEmpty()) {
             return;
         }
-        ArrayList<View> views = new ArrayList<>(hosts.keySet());
-        for (View view : views) {
+        // one list for all frames: the hosts are a WeakHashMap that attach() can change while the
+        // views are invalidated
+        scratch.clear();
+        scratch.addAll(hosts.keySet());
+        for (int i = 0; i < scratch.size(); i++) {
+            final View view = scratch.get(i);
             if (view != null && view.isAttachedToWindow()) {
                 view.invalidate();
             }
         }
+        scratch.clear();
     }
 }
